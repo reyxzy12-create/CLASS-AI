@@ -52,3 +52,7 @@
   padding-left: 12px;
   color: #77798b;
 }
+
+#ffPreviewPanel[hidden] {
+  display: none !important;
+}
