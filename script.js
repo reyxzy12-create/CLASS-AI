@@ -25,7 +25,9 @@
     messages.forEach(m=>{
       const row=document.createElement("div");row.className="message "+(m.role==="user"?"user":"assistant");
       if(m.role!=="user"){const av=document.createElement("div");av.className="message-avatar";av.textContent="✧";row.append(av)}
-      const bubble=document.createElement("div");bubble.className="message-bubble";bubble.textContent=m.content;row.append(bubble);messagesEl.append(row);
+      const bubble=document.createElement("div");bubble.className="message-bubble";bubble.innerHTML = DOMPurify.sanitize(
+  marked.parse(m.content)
+);row.append(bubble);messagesEl.append(row);
     });
     $("#chatContent").scrollTop=$("#chatContent").scrollHeight;
   }
