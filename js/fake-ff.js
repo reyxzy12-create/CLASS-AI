@@ -73,7 +73,7 @@ window.FakeFF = {
 
       // Hindari mendapat foto yang sama dua kali berturut-turut
       do {
-        randomNumber = Math.floor(Math.random() * 20) + 1;
+        randomNumber = Math.floor(Math.random() * 6) + 2;
       } while (randomNumber === lastNumber);
 
       const image = new Image();
