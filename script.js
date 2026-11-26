@@ -16,6 +16,7 @@
     if (Array.isArray(saved)) {
       conversations = saved;
     } else {
+      // Pindahkan chat lama ke format riwayat baru.
       const oldMessages = JSON.parse(localStorage.getItem(OLD_STORE) || "[]");
 
       if (oldMessages.length) {
@@ -65,6 +66,7 @@
     renderMessages();
   }
 
+  // Tampilkan semua riwayat dengan tombol hapus masing-masing.
   function renderHistory() {
     const history = $("#chatHistory");
     if (!history) return;
@@ -88,17 +90,23 @@
 
         item.addEventListener("click", () => {
           if (busy) return;
+
           activeId = chat.id;
           renderHistory();
           renderMessages();
           showPage("chat");
         });
 
+        // Tombol X untuk menghapus riwayat ini saja.
         const remove = document.createElement("button");
         remove.type = "button";
         remove.className = "delete-history";
         remove.textContent = "×";
         remove.title = "Hapus riwayat";
+        remove.setAttribute(
+          "aria-label",
+          "Hapus riwayat " + item.textContent
+        );
 
         remove.addEventListener("click", event => {
           event.stopPropagation();
@@ -119,7 +127,9 @@
               ? conversations[0].id
               : null;
 
-            if (!activeId) createChat();
+            if (!activeId) {
+              createChat();
+            }
           }
 
           save();
@@ -178,6 +188,7 @@
 
   $("#newChat").addEventListener("click", () => {
     if (busy) return;
+
     createChat();
     showPage("chat");
     $("#chatInput").focus();
@@ -188,12 +199,14 @@
   const input = $("#chatInput");
   const sendButton = $("#sendButton");
 
+  // Elemen untuk pilih foto dan preview.
   const imageInput = $("#imageInput");
   const imagePreview = $("#imagePreview");
   let selectedImageUrl = null;
 
   imageInput.addEventListener("change", () => {
     const file = imageInput.files && imageInput.files[0];
+
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -257,6 +270,9 @@
   function inlineFormat(value) {
     let text = escapeHTML(value);
 
+    // Ubah tag br yang dikirim AI menjadi baris baru HTML.
+    text = text.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
+
     text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
     text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
@@ -266,7 +282,10 @@
   }
 
   function renderMarkdown(source) {
-    const lines = String(source || "").replace(/\r/g, "").split("\n");
+    const lines = String(source || "")
+      .replace(/\r/g, "")
+      .split("\n");
+
     let html = "";
     let inCode = false;
     let code = [];
@@ -282,48 +301,69 @@
       }
     }
 
+    // Tutup tabel sekaligus pembungkusnya.
     function closeTable() {
       if (inTable) {
-        html += "</tbody></table>";
+        html += "</tbody></table></div>";
         inTable = false;
       }
     }
 
-    function codeBlockMarkup(codeText) {
-      const safeSource = JSON.stringify(codeText).replace(/</g, "\\u003c");
+    // Membuat kotak kode dengan tombol Kode dan Preview.
+    function makeCodeBlock(codeText) {
+      const safeSource = JSON.stringify(codeText)
+        .replace(/</g, "\\u003c");
 
       return `
         <div class="code-block">
+
           <div class="code-toolbar">
             <span class="code-language">CODE</span>
+
             <div class="code-tabs" role="group" aria-label="Tampilan kode">
-              <button type="button" class="code-tab active"
-                aria-label="Lihat kode" aria-pressed="true">
+
+              <button
+                type="button"
+                class="code-tab active"
+                aria-label="Lihat kode"
+                aria-pressed="true"
+              >
                 <span class="tab-icon" aria-hidden="true">&gt;_</span>
-                <span class="tab-label">Kode</span>
               </button>
-              <button type="button" class="preview-tab"
-                aria-label="Lihat preview" aria-pressed="false">
+
+              <button
+                type="button"
+                class="preview-tab"
+                aria-label="Lihat preview"
+                aria-pressed="false"
+              >
                 <span class="tab-icon play-icon" aria-hidden="true">▶</span>
-                <span class="tab-label">Preview</span>
               </button>
+
             </div>
           </div>
 
           <div class="code-view">
+
             <div class="code-copy-row">
-              <button type="button" class="copy-code" aria-label="Salin kode">
+              <button type="button" class="copy-code">
                 ▢ Salin
               </button>
             </div>
+
             <pre><code>${escapeHTML(codeText)}</code></pre>
+
           </div>
 
           <div class="code-preview-view" hidden>
-            <iframe title="Preview kode" sandbox="allow-scripts"></iframe>
+            <iframe
+              title="Preview kode"
+              sandbox="allow-scripts"
+            ></iframe>
           </div>
 
           <script type="application/json" class="preview-source">${safeSource}</script>
+
         </div>
       `;
     }
@@ -331,6 +371,7 @@
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
+      // Blok kode Markdown.
       if (line.trim().startsWith("```")) {
         closeList();
         closeTable();
@@ -339,9 +380,10 @@
           inCode = true;
           code = [];
         } else {
-          html += codeBlockMarkup(code.join("\n"));
+          html += makeCodeBlock(code.join("\n"));
           inCode = false;
         }
+
         continue;
       }
 
@@ -350,6 +392,7 @@
         continue;
       }
 
+      // Deteksi awal tabel Markdown.
       if (
         line.includes("|") &&
         i + 1 < lines.length &&
@@ -358,24 +401,47 @@
         closeList();
         closeTable();
 
-        const cells = line.split("|").map(s => s.trim()).filter(Boolean);
+        const cells = line
+          .split("|")
+          .map(s => s.trim())
+          .filter(Boolean);
+
         i++;
 
-        html += '<div class="table-wrap"><table class="ai-table"><thead><tr>';
+        html += `
+          <div class="table-wrap">
+            <table class="ai-table">
+              <thead>
+                <tr>
+        `;
+
         cells.forEach(cell => {
           html += `<th>${inlineFormat(cell)}</th>`;
         });
-        html += "</tr></thead><tbody>";
+
+        html += `
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
         inTable = true;
         continue;
       }
 
+      // Baris isi tabel.
       if (inTable && line.includes("|")) {
-        const cells = line.split("|").map(s => s.trim()).filter(Boolean);
+        const cells = line
+          .split("|")
+          .map(s => s.trim())
+          .filter(Boolean);
+
         html += "<tr>";
+
         cells.forEach(cell => {
           html += `<td>${inlineFormat(cell)}</td>`;
         });
+
         html += "</tr>";
         continue;
       } else {
@@ -387,14 +453,19 @@
         continue;
       }
 
+      // Heading.
       const heading = line.match(/^(#{1,4})\s+(.+)$/);
+
       if (heading) {
         closeList();
+
         const level = heading[1].length;
+
         html += `<h${level}>${inlineFormat(heading[2])}</h${level}>`;
         continue;
       }
 
+      // Bullet list.
       if (/^\s*[-*]\s+/.test(line)) {
         if (!inList || listType !== "ul") {
           closeList();
@@ -403,10 +474,14 @@
           listType = "ul";
         }
 
-        html += `<li>${inlineFormat(line.replace(/^\s*[-*]\s+/, ""))}</li>`;
+        html += `<li>${inlineFormat(
+          line.replace(/^\s*[-*]\s+/, "")
+        )}</li>`;
+
         continue;
       }
 
+      // Numbered list.
       if (/^\s*\d+[.)]\s+/.test(line)) {
         if (!inList || listType !== "ol") {
           closeList();
@@ -415,21 +490,32 @@
           listType = "ol";
         }
 
-        html += `<li>${inlineFormat(line.replace(/^\s*\d+[.)]\s+/, ""))}</li>`;
+        html += `<li>${inlineFormat(
+          line.replace(/^\s*\d+[.)]\s+/, "")
+        )}</li>`;
+
         continue;
       }
 
       closeList();
 
+      // Blockquote.
       if (/^>\s?/.test(line)) {
-        html += `<blockquote>${inlineFormat(line.replace(/^>\s?/, ""))}</blockquote>`;
+        html += `<blockquote>${inlineFormat(
+          line.replace(/^>\s?/, "")
+        )}</blockquote>`;
+
         continue;
       }
 
+      // Paragraf biasa.
       html += `<p>${inlineFormat(line)}</p>`;
     }
 
-    if (inCode) html += codeBlockMarkup(code.join("\n"));
+    // Jika blok kode belum ditutup.
+    if (inCode) {
+      html += makeCodeBlock(code.join("\n"));
+    }
 
     closeList();
     closeTable();
@@ -437,57 +523,86 @@
     return html;
   }
 
+  // Mengaktifkan tombol kode, preview, dan salin.
   function addCopyButtons(container) {
     container.querySelectorAll(".code-block").forEach(block => {
       const code = block.querySelector("pre code")?.textContent || "";
+
       const codeView = block.querySelector(".code-view");
       const previewView = block.querySelector(".code-preview-view");
       const frame = block.querySelector("iframe");
       const source = block.querySelector(".preview-source");
+
       const codeTab = block.querySelector(".code-tab");
       const previewTab = block.querySelector(".preview-tab");
 
+      // Siapkan preview HTML.
       if (source && frame) {
         try {
-          frame.srcdoc = JSON.parse(source.textContent || '""');
+          const htmlSource = JSON.parse(source.textContent || '""');
+          frame.srcdoc = htmlSource;
         } catch {
-          frame.srcdoc = "<!doctype html><html><body>Preview tidak tersedia.</body></html>";
+          frame.srcdoc = `
+            <!doctype html>
+            <html>
+              <body>Preview tidak tersedia.</body>
+            </html>
+          `;
         }
       }
 
+      // Tombol Kode.
       codeTab?.addEventListener("click", () => {
         codeView.hidden = false;
         previewView.hidden = true;
+
         codeTab.classList.add("active");
         previewTab.classList.remove("active");
+
         codeTab.setAttribute("aria-pressed", "true");
         previewTab.setAttribute("aria-pressed", "false");
       });
 
+      // Tombol Preview.
       previewTab?.addEventListener("click", () => {
         codeView.hidden = true;
         previewView.hidden = false;
+
         codeTab.classList.remove("active");
         previewTab.classList.add("active");
+
         codeTab.setAttribute("aria-pressed", "false");
         previewTab.setAttribute("aria-pressed", "true");
-        if (frame && !frame.srcdoc) frame.srcdoc = code;
       });
 
-      block.querySelector(".copy-code")?.addEventListener("click", async event => {
-        const button = event.currentTarget;
+      // Tombol salin kode.
+      block.querySelector(".copy-code")?.addEventListener(
+        "click",
+        async event => {
+          const button = event.currentTarget;
 
-        try {
-          await navigator.clipboard.writeText(code);
-          button.textContent = "✓ Tersalin";
-        } catch {
-          button.textContent = "Gagal menyalin";
+          try {
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(code);
+            } else {
+              const temporary = document.createElement("textarea");
+              temporary.value = code;
+              document.body.appendChild(temporary);
+              temporary.select();
+              document.execCommand("copy");
+              temporary.remove();
+            }
+
+            button.textContent = "✓ Tersalin";
+          } catch {
+            button.textContent = "Gagal menyalin";
+          }
+
+          setTimeout(() => {
+            button.textContent = "▢ Salin";
+          }, 1600);
         }
-
-        setTimeout(() => {
-          button.textContent = "▢ Salin";
-        }, 1600);
-      });
+      );
     });
   }
 
@@ -528,6 +643,7 @@
     $("#chatContent").scrollTop = $("#chatContent").scrollHeight;
   }
 
+  // Tombol saran prompt.
   document.querySelectorAll(".suggestion").forEach(button => {
     button.addEventListener("click", () => {
       input.value = button.dataset.prompt || "";
@@ -535,18 +651,23 @@
     });
   });
 
+  // Tinggi textarea otomatis.
   input.addEventListener("input", () => {
     input.style.height = "auto";
     input.style.height = Math.min(input.scrollHeight, 150) + "px";
   });
 
+  // Kirim pesan ke AI.
   $("#chatForm").addEventListener("submit", async event => {
     event.preventDefault();
 
     const text = input.value.trim();
+
     if (!text || busy) return;
 
-    if (!currentChat()) createChat();
+    if (!currentChat()) {
+      createChat();
+    }
 
     const chat = currentChat();
 
@@ -587,6 +708,7 @@
 
       chat.messages[chat.messages.length - 1].content =
         reply || "Maaf, belum ada jawaban.";
+
     } catch (error) {
       chat.messages[chat.messages.length - 1].content =
         "Maaf, CLASS-AI belum bisa terhubung.\n\n" +
@@ -604,6 +726,7 @@
     sendButton.textContent = "↑";
   });
 
+  // Mulai dengan chat kosong tanpa menghapus riwayat lama.
   if (conversations.length) {
     activeId = conversations[0].id;
   } else {
@@ -613,5 +736,6 @@
   renderHistory();
   renderMessages();
 
+  // Fake ML tetap aktif jika modulnya tersedia.
   window.FakeML?.init();
-})()
+})();
