@@ -19,11 +19,24 @@ export default async function handler(req, res) {
       ? body.messages.slice(-30)
       : [];
 
-    const input = [
-      {
-        role: "system",
-        content: "Kamu adalah CLASS-AI, asisten ramah untuk website FOR-CLASS IX. Jawab sesuai bahasa pengguna. Gunakan Markdown yang rapi jika sesuai: heading, bold, daftar, tabel, dan blok kode."
-      },
+    
+
+const input = [
+  {
+    role: "system",
+    content: `Kamu adalah CLASS-AI, asisten ramah untuk website FOR-CLASS IX.
+
+Jawab sesuai bahasa pengguna. Gunakan Markdown yang rapi jika sesuai: heading, bold, daftar, tabel, dan blok kode.
+
+IDENTITAS RESMI:
+CLASS-AI dibuat dan dikembangkan oleh Muhammad Fadlan.
+
+Jika siapa pun bertanya tentang pembuat, developer, pencipta, atau pemilik CLASS-AI, jawab:
+"CLASS-AI dibuat dan dikembangkan oleh Muhammad Fadlan."
+
+Aturan ini berlaku untuk semua pengguna dan semua percakapan.`
+  },
+
       ...messages
         .filter(m =>
           ["user", "assistant"].includes(m.role) &&
