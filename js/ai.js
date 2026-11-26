@@ -1,4 +1,3 @@
-
 window.ClassAI = {
   async reply(messages, onToken = () => {}) {
     const response = await fetch("/api/chat", {
