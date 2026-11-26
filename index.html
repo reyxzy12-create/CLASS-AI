@@ -15,17 +15,20 @@
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand-row">
-        <div class="brand-mark">F</div>
+        <img class="brand-mark" src="/assets/icon.jpg" alt="Logo FOR-CLASS IX">
         <div><strong>FOR-CLASS IX</strong><small>CREATIVE SPACE</small></div>
         <button class="icon-btn close-sidebar" id="closeSidebar" aria-label="Tutup menu">×</button>
       </div>
+
       <button class="new-chat" id="newChat">＋ <span>New chat</span></button>
       <div class="side-label">RIWAYAT CHAT</div>
       <div id="chatHistory" class="chat-history"></div>
+
       <div class="side-label">MENU</div>
       <nav class="nav-list" aria-label="Menu utama">
         <button class="nav-item active" data-page="chat"><span>✧</span> CLASS-AI</button>
       </nav>
+
       <div class="sidebar-spacer"></div>
       <button class="nav-item about-link" data-page="about"><span>ⓘ</span> ABOUT CLASS IX</button>
       <div class="sidebar-foot">Made for creativity · v1.0</div>
@@ -46,26 +49,43 @@
               <p class="eyebrow">YOUR CLASS ASSISTANT</p>
               <h1>Halo, ada yang bisa<br><span>CLASS-AI</span> bantu?</h1>
               <p class="welcome-sub">Tanya apa saja, cari ide, belajar, atau mulai sesuatu yang baru.</p>
+
               <div class="suggestions">
                 <button class="suggestion" data-prompt="Bantu aku belajar dengan cara yang mudah dipahami.">📚 Bantu aku belajar</button>
                 <button class="suggestion" data-prompt="Beri aku ide kreatif untuk proyek sekolah.">💡 Cari ide kreatif</button>
                 <button class="suggestion" data-prompt="Buatkan contoh kode HTML sederhana dan jelaskan.">💻 Bantu coding</button>
               </div>
             </div>
+
             <div class="messages" id="messages" aria-live="polite"></div>
           </div>
+
           <form class="composer" id="chatForm">
-            <textarea id="chatInput" rows="1" placeholder="Message CLASS-AI..." aria-label="Pesan untuk CLASS-AI"></textarea>
+            <div class="composer-main">
+              <label for="imageInput" class="image-button" title="Pilih foto" aria-label="Pilih foto">+</label>
+              <input type="file" id="imageInput" accept="image/*" hidden>
+
+              <textarea id="chatInput" rows="1" placeholder="Message CLASS-AI..." aria-label="Pesan untuk CLASS-AI"></textarea>
+
+              <button class="send-btn" id="sendButton" type="submit" aria-label="Kirim pesan">↑</button>
+            </div>
+
+            <div id="imagePreview" class="image-preview" hidden></div>
+
             <div class="composer-bottom">
               <span class="composer-hint">CLASS-AI dapat membuat kesalahan. Periksa informasi penting.</span>
-              <button class="send-btn" id="sendButton" type="submit" aria-label="Kirim pesan">↑</button>
             </div>
           </form>
         </div>
       </section>
 
       <section class="page tool-page" id="page-about">
-        <div class="page-heading"><p class="eyebrow">ABOUT THE PROJECT</p><h1>ABOUT <span>CLASS IX</span></h1><p>Kenali ruang kreatif di balik FOR-CLASS IX.</p></div>
+        <div class="page-heading">
+          <p class="eyebrow">ABOUT THE PROJECT</p>
+          <h1>ABOUT <span>CLASS IX</span></h1>
+          <p>Kenali ruang kreatif di balik FOR-CLASS IX.</p>
+        </div>
+
         <div class="about-card panel">
           <div class="about-logo">FOR-CLASS IX</div>
           <h2>One space. Many possibilities.</h2>
@@ -74,10 +94,13 @@
           <p class="tiny-note">Seluruh hasil ai tidak akan di gunakan untuk kejahatan atau kriminalisasi</p>
         </div>
       </section>
+
       <footer class="main-footer">FOR-CLASS IX <span>·</span> Made for creativity by fadlan</footer>
     </main>
   </div>
+
   <div class="mobile-scrim" id="scrim"></div>
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
   <script src="/js/ai.js"></script>
