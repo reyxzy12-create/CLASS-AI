@@ -25,8 +25,6 @@
       <div class="side-label">MENU</div>
       <nav class="nav-list" aria-label="Menu utama">
         <button class="nav-item active" data-page="chat"><span>✧</span> CLASS-AI</button>
-        <button class="nav-item" data-page="iqc"><span>▣</span> IQC Maker</button>
-        <button class="nav-item" data-page="ff"><span>🔥</span> Fake FF</button>
       </nav>
       <div class="sidebar-spacer"></div>
       <button class="nav-item about-link" data-page="about"><span>ⓘ</span> ABOUT CLASS IX</button>
@@ -66,63 +64,6 @@
         </div>
       </section>
 
-      <section class="page tool-page" id="page-iqc">
-        <div class="page-heading"><p class="eyebrow">CREATIVE TOOL</p><h1>IQC <span>Maker</span></h1><p>Buat mockup percakapan bergaya WhatsApp iPhone.</p></div>
-        <div class="tool-grid">
-          <div class="panel form-panel">
-            <label>Nama kontak<input id="iqcContact" value="Bestie" maxlength="28"></label>
-            <div class="two-fields">
-              <label>Operator SIM<input id="iqcOperator" value="Telkomsel" maxlength="18"></label>
-              <label>Jam<input id="iqcTime" type="time" value="16:21"></label>
-            </div>
-            <div class="two-fields">
-              <label>Baterai (%)<input id="iqcBattery" type="number" min="1" max="100" value="82"></label>
-              <label>Tampilan<select id="iqcTheme"><option value="dark">Dark mode</option><option value="light">Light mode</option></select></label>
-            </div>
-            <label>Pesan chat <small class="muted">(satu pesan per baris; awali dengan me: atau them:)</small>
-              <textarea id="iqcMessages" class="large-input" rows="7">them: Gua yg udah temenan ama lu 8 th aja emosi sampe terjatuh dan tak bisa bangkit lagi 😭
-me: WKWKWK sabar dulu 😂
-them: Susah banget ya ternyata.</textarea>
-            </label>
-            <div class="button-row"><button class="primary-btn" id="renderIqc">↻ Perbarui preview</button><button class="secondary-btn" id="downloadIqc">↓ Download PNG</button></div>
-            <p class="tiny-note">Mockup kreatif untuk hiburan/desain. Bukan bukti percakapan asli.</p>
-          </div>
-          <div class="preview-panel"><div class="preview-label">LIVE PREVIEW</div><div class="phone-frame" id="iqcPreview"></div></div>
-        </div>
-      </section>
-
-      <section class="page tool-page" id="page-ff">
-        <div class="page-heading"><p class="eyebrow">GAME MOCKUP</p><h1>Fake <span>FF</span></h1><p>Personalisasi nama pada template akun Free Fire.</p></div>
-        <div class="tool-grid">
-          <div class="panel form-panel">
-            <label>Nama pemain<input id="ffName" value="SULTAN REX" maxlength="22"></label>
-            <label>ID akun / tag kecil<input id="ffTag" value="MOCKUP ACCOUNT" maxlength="24"></label>
-            <label>Warna nama<select id="ffColor"><option value="#fff4b0">Gold</option><option value="#ffffff">White</option><option value="#9eeeff">Ice blue</option></select></label>
-            <button class="primary-btn full-btn" id="renderFf">✦ Buat Foto</button>
-            <button class="secondary-btn full-btn" id="downloadFf">↓ Download PNG</button>
-            <p class="tiny-note">Gambar ini adalah mockup editan. Nama tidak mengubah akun atau data resmi Free Fire.</p>
-          </div>
-          <div class="preview-panel" id="ffPreviewPanel" hidden>
-          <div class="preview-label">FAKE FF RESULT</div>
-          <canvas class="game-canvas" id="ffCanvas" width="864" height="1536"></canvas>
-        </div>
-      </section>
-
-      <section class="page tool-page" id="page-ml">
-        <div class="page-heading"><p class="eyebrow">GAME MOCKUP</p><h1>Fake <span>ML</span></h1><p>Personalisasi halaman HISTORY Ranked Mobile Legends.</p></div>
-        <div class="tool-grid">
-          <div class="panel form-panel">
-            <label>Nama pemain<input id="mlName" value="CLASS IX"></label>
-            <label>Rank / label<input id="mlRank" value="RANKED • HISTORY" maxlength="24"></label>
-            <label>Catatan mockup<input id="mlNote" value="CUSTOM PREVIEW" maxlength="24"></label>
-            <button class="primary-btn full-btn" id="renderMl">↻ Generate preview</button>
-            <button class="secondary-btn full-btn" id="downloadMl">↓ Download PNG</button>
-            <p class="tiny-note">Mockup ini tidak mengubah hasil pertandingan atau statistik akun Mobile Legends.</p>
-          </div>
-          <div class="preview-panel"><div class="preview-label">TEMPLATE PREVIEW</div><canvas class="game-canvas wide-canvas" id="mlCanvas" width="1536" height="864"></canvas></div>
-        </div>
-      </section>
-
       <section class="page tool-page" id="page-about">
         <div class="page-heading"><p class="eyebrow">ABOUT THE PROJECT</p><h1>ABOUT <span>CLASS IX</span></h1><p>Kenali ruang kreatif di balik FOR-CLASS IX.</p></div>
         <div class="about-card panel">
@@ -130,7 +71,7 @@ them: Susah banget ya ternyata.</textarea>
           <h2>One space. Many possibilities.</h2>
           <p>FOR-CLASS IX adalah website kreatif yang menggabungkan asisten AI CLASS-AI dengan beberapa alat pembuat mockup. Pengguna dapat bertanya kepada AI, membuat mockup chat bergaya WhatsApp, serta mengedit template visual game untuk kebutuhan desain dan hiburan.</p>
           <div class="about-tags"><span>CLASS-AI</span><span>IQC Maker</span><span>Fake FF</span></div>
-          <p class="tiny-note">Seluruh hasil Fake FF, dan IQC merupakan mockup buatan pengguna, bukan tampilan resmi atau bukti transaksi/percakapan.</p>
+          <p class="tiny-note">Seluruh hasil ai tidak akan di gunakan untuk kejahatan atau kriminalisasi</p>
         </div>
       </section>
       <footer class="main-footer">FOR-CLASS IX <span>·</span> Made for creativity</footer>
@@ -140,8 +81,6 @@ them: Susah banget ya ternyata.</textarea>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
   <script src="/js/ai.js"></script>
-  <script src="/js/iqc.js"></script>
-  <script src="/js/fake-ff.js"></script>
   <script src="/script.js"></script>
 </body>
 </html>
