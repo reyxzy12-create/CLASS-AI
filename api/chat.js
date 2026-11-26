@@ -1,108 +1,91 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const apiKey = process.env.GROQ_API_KEY;
-
-  if (!apiKey) {
+  if (!process.env.GROQ_API_KEY) {
     return res.status(500).json({
       error: "GROQ_API_KEY belum diatur di Vercel Environment Variables."
     });
   }
 
   try {
-    let body = req.body;
+    const body = typeof req.body === "string"
+      ? JSON.parse(req.body)
+      : req.body;
 
-    if (typeof body === "string") {
-      try {
-        body = JSON.parse(body);
-      } catch {
-        return res.status(400).json({
-          error: "Format request JSON tidak valid."
-        });
-      }
-    }
-
-    const incomingMessages = Array.isArray(body?.messages)
+    const messages = Array.isArray(body?.messages)
       ? body.messages.slice(-30)
       : [];
 
-    const messages = [
+    const input = [
       {
         role: "system",
-        content:
-          "Kamu adalah CLASS-AI, asisten ramah untuk website FOR-CLASS IX. " +
-          "Jawab dalam bahasa yang digunakan pengguna. Berikan jawaban yang jelas, " +
-          "sopan, akurat, dan membantu. Jika diminta membuat kode, berikan kode " +
-          "yang rapi beserta penjelasan singkat."
+        content: "Kamu adalah CLASS-AI, asisten ramah untuk website FOR-CLASS IX. Jawab sesuai bahasa pengguna. Gunakan Markdown yang rapi jika sesuai: heading, bold, daftar, tabel, dan blok kode."
       },
-      ...incomingMessages
-        .filter(
-          (message) =>
-            message &&
-            ["user", "assistant"].includes(message.role) &&
-            typeof message.content === "string" &&
-            message.content.trim().length > 0
+      ...messages
+        .filter(m =>
+          ["user", "assistant"].includes(m.role) &&
+          typeof m.content === "string"
         )
-        .map((message) => ({
-          role: message.role,
-          content: message.content.slice(0, 8000)
+        .map(m => ({
+          role: m.role,
+          content: m.content.slice(0, 8000)
         }))
     ];
-
-    if (messages.length === 1) {
-      return res.status(400).json({
-        error: "Pesan belum ada. Kirim pesan terlebih dahulu."
-      });
-    }
-
-    const model =
-      process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 
     const upstream = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model,
-          messages,
+          model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+          messages: input,
           temperature: 0.7,
-          max_tokens: 2048
+          max_tokens: 2048,
+          stream: true
         })
       }
     );
 
-    const result = await upstream.json().catch(() => ({}));
-
     if (!upstream.ok) {
-      console.error("[GROQ API ERROR]", upstream.status, result);
-      return res.status(502).json({
-        error:
-          result?.error?.message ||
-          `Permintaan ke Groq gagal (HTTP ${upstream.status}). Periksa GROQ_MODEL dan GROQ_API_KEY di Vercel.`
+      const error = await upstream.json().catch(() => ({}));
+      return res.status(upstream.status).json({
+        error: error?.error?.message || "Groq API error."
       });
     }
 
-    const reply = result?.choices?.[0]?.message?.content;
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
 
-    if (typeof reply !== "string" || !reply.trim()) {
-      return res.status(502).json({
-        error: "Groq berhasil merespons, tetapi teks jawaban kosong."
-      });
+    const reader = upstream.body.getReader();
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      res.write(Buffer.from(value));
     }
 
-    return res.status(200).json({ reply });
+    res.write("data: [DONE]\n\n");
+    return res.end();
 
   } catch (error) {
     console.error("[CLASS-AI ERROR]", error);
-    return res.status(500).json({
-      error: "Terjadi kesalahan pada server CLASS-AI. Coba lagi beberapa saat."
-    });
+
+    if (!res.headersSent) {
+      return res.status(500).json({
+        error: error.message || "Internal server error."
+      });
+    }
+
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    return res.end();
   }
 }
