@@ -1,4 +1,3 @@
-
 (() => {
   const $ = (selector) => document.querySelector(selector);
   const sidebar = $("#sidebar");
@@ -19,6 +18,7 @@
     } else {
       // Pindahkan chat lama ke format riwayat baru.
       const oldMessages = JSON.parse(localStorage.getItem(OLD_STORE) || "[]");
+
       if (oldMessages.length) {
         conversations = [{
           id: String(Date.now()),
@@ -66,6 +66,7 @@
     renderMessages();
   }
 
+  // Tampilkan semua riwayat dengan tombol hapus masing-masing.
   function renderHistory() {
     const history = $("#chatHistory");
     if (!history) return;
@@ -76,26 +77,80 @@
       .slice()
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .forEach(chat => {
+        const row = document.createElement("div");
+        row.className = "history-row";
+
+        // Tombol untuk membuka riwayat.
         const item = document.createElement("button");
-        item.className = "history-item" + (chat.id === activeId ? " selected" : "");
+        item.type = "button";
+        item.className = "history-item" +
+          (chat.id === activeId ? " selected" : "");
+
         item.textContent = chat.title || "Percakapan baru";
         item.title = item.textContent;
 
         item.addEventListener("click", () => {
           if (busy) return;
+
           activeId = chat.id;
           renderHistory();
           renderMessages();
           showPage("chat");
         });
 
-        history.appendChild(item);
+        // Tombol X untuk menghapus riwayat ini saja.
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "delete-history";
+        remove.textContent = "×";
+        remove.title = "Hapus riwayat";
+        remove.setAttribute(
+          "aria-label",
+          "Hapus riwayat " + item.textContent
+        );
+
+        remove.addEventListener("click", event => {
+          event.stopPropagation();
+
+          if (busy) {
+            alert("Tunggu sampai jawaban selesai sebelum menghapus riwayat.");
+            return;
+          }
+
+          const deletingActive = chat.id === activeId;
+
+          // Hapus hanya percakapan yang tombol X-nya ditekan.
+          conversations = conversations.filter(
+            entry => entry.id !== chat.id
+          );
+
+          // Jika yang dihapus sedang dibuka, pindah ke chat lain.
+          if (deletingActive) {
+            activeId = conversations.length
+              ? conversations[0].id
+              : null;
+
+            if (!activeId) {
+              createChat();
+            }
+          }
+
+          save();
+          renderHistory();
+          renderMessages();
+        });
+
+        row.append(item, remove);
+        history.appendChild(row);
       });
   }
 
   function showPage(name) {
     document.querySelectorAll(".page").forEach(page => {
-      page.classList.toggle("active-page", page.id === "page-" + name);
+      page.classList.toggle(
+        "active-page",
+        page.id === "page-" + name
+      );
     });
 
     document.querySelectorAll(".nav-item[data-page]").forEach(button => {
@@ -114,7 +169,9 @@
   }
 
   document.querySelectorAll("[data-page]").forEach(button => {
-    button.addEventListener("click", () => showPage(button.dataset.page));
+    button.addEventListener("click", () => {
+      showPage(button.dataset.page);
+    });
   });
 
   $("#menuButton").addEventListener("click", () => {
@@ -134,6 +191,7 @@
 
   $("#newChat").addEventListener("click", () => {
     if (busy) return;
+
     createChat();
     showPage("chat");
     $("#chatInput").focus();
@@ -143,6 +201,65 @@
   const welcome = $("#welcome");
   const input = $("#chatInput");
   const sendButton = $("#sendButton");
+
+  // Elemen untuk pilih foto dan preview.
+  const imageInput = $("#imageInput");
+  const imagePreview = $("#imagePreview");
+  let selectedImageUrl = null;
+
+  imageInput.addEventListener("change", () => {
+    const file = imageInput.files && imageInput.files[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Pilih file gambar.");
+      imageInput.value = "";
+      return;
+    }
+
+    // Hapus URL preview sebelumnya jika ada.
+    if (selectedImageUrl) {
+      URL.revokeObjectURL(selectedImageUrl);
+    }
+
+    selectedImageUrl = URL.createObjectURL(file);
+    imagePreview.innerHTML = "";
+
+    const previewImage = document.createElement("img");
+    previewImage.src = selectedImageUrl;
+    previewImage.alt = "Foto yang dipilih";
+
+    const fileInfo = document.createElement("span");
+    fileInfo.className = "image-file-name";
+    fileInfo.textContent = file.name;
+
+    const removeImage = document.createElement("button");
+    removeImage.type = "button";
+    removeImage.className = "remove-image";
+    removeImage.textContent = "×";
+    removeImage.setAttribute("aria-label", "Batalkan foto");
+
+    removeImage.addEventListener("click", () => {
+      imageInput.value = "";
+
+      if (selectedImageUrl) {
+        URL.revokeObjectURL(selectedImageUrl);
+      }
+
+      selectedImageUrl = null;
+      imagePreview.innerHTML = "";
+      imagePreview.hidden = true;
+    });
+
+    imagePreview.append(
+      previewImage,
+      fileInfo,
+      removeImage
+    );
+
+    imagePreview.hidden = false;
+  });
 
   function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, char => ({
@@ -166,7 +283,10 @@
   }
 
   function renderMarkdown(source) {
-    const lines = String(source || "").replace(/\r/g, "").split("\n");
+    const lines = String(source || "")
+      .replace(/\r/g, "")
+      .split("\n");
+
     let html = "";
     let inCode = false;
     let code = [];
@@ -200,9 +320,19 @@
           inCode = true;
           code = [];
         } else {
-          html += `<div class="code-block"><div class="code-toolbar"><span>CODE</span><button type="button" class="copy-code">Salin kode</button></div><pre><code>${escapeHTML(code.join("\n"))}</code></pre></div>`;
+          html += `
+            <div class="code-block">
+              <div class="code-toolbar">
+                <span>CODE</span>
+                <button type="button" class="copy-code">Salin kode</button>
+              </div>
+              <pre><code>${escapeHTML(code.join("\n"))}</code></pre>
+            </div>
+          `;
+
           inCode = false;
         }
+
         continue;
       }
 
@@ -211,25 +341,49 @@
         continue;
       }
 
-      // Tabel Markdown
-      if (line.includes("|") && i + 1 < lines.length &&
-          /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])) {
+      // Tabel Markdown.
+      if (
+        line.includes("|") &&
+        i + 1 < lines.length &&
+        /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])
+      ) {
         closeList();
         closeTable();
 
-        const cells = line.split("|").map(s => s.trim()).filter(Boolean);
+        const cells = line
+          .split("|")
+          .map(s => s.trim())
+          .filter(Boolean);
+
         i++;
-        html += "<div class=\"table-wrap\"><table class=\"ai-table\"><thead><tr>";
-        cells.forEach(cell => html += `<th>${inlineFormat(cell)}</th>`);
+
+        html += `
+          <div class="table-wrap">
+            <table class="ai-table">
+              <thead><tr>
+        `;
+
+        cells.forEach(cell => {
+          html += `<th>${inlineFormat(cell)}</th>`;
+        });
+
         html += "</tr></thead><tbody>";
         inTable = true;
         continue;
       }
 
       if (inTable && line.includes("|")) {
-        const cells = line.split("|").map(s => s.trim()).filter(Boolean);
+        const cells = line
+          .split("|")
+          .map(s => s.trim())
+          .filter(Boolean);
+
         html += "<tr>";
-        cells.forEach(cell => html += `<td>${inlineFormat(cell)}</td>`);
+
+        cells.forEach(cell => {
+          html += `<td>${inlineFormat(cell)}</td>`;
+        });
+
         html += "</tr>";
         continue;
       } else {
@@ -242,8 +396,10 @@
       }
 
       const heading = line.match(/^(#{1,4})\s+(.+)$/);
+
       if (heading) {
         closeList();
+
         const level = heading[1].length;
         html += `<h${level}>${inlineFormat(heading[2])}</h${level}>`;
         continue;
@@ -256,7 +412,11 @@
           inList = true;
           listType = "ul";
         }
-        html += `<li>${inlineFormat(line.replace(/^\s*[-*]\s+/, ""))}</li>`;
+
+        html += `<li>${inlineFormat(
+          line.replace(/^\s*[-*]\s+/, "")
+        )}</li>`;
+
         continue;
       }
 
@@ -267,14 +427,21 @@
           inList = true;
           listType = "ol";
         }
-        html += `<li>${inlineFormat(line.replace(/^\s*\d+[.)]\s+/, ""))}</li>`;
+
+        html += `<li>${inlineFormat(
+          line.replace(/^\s*\d+[.)]\s+/, "")
+        )}</li>`;
+
         continue;
       }
 
       closeList();
 
       if (/^>\s?/.test(line)) {
-        html += `<blockquote>${inlineFormat(line.replace(/^>\s?/, ""))}</blockquote>`;
+        html += `<blockquote>${inlineFormat(
+          line.replace(/^>\s?/, "")
+        )}</blockquote>`;
+
         continue;
       }
 
@@ -282,18 +449,30 @@
     }
 
     if (inCode) {
-      html += `<div class="code-block"><div class="code-toolbar"><span>CODE</span><button type="button" class="copy-code">Salin kode</button></div><pre><code>${escapeHTML(code.join("\n"))}</code></pre></div>`;
+      html += `
+        <div class="code-block">
+          <div class="code-toolbar">
+            <span>CODE</span>
+            <button type="button" class="copy-code">Salin kode</button>
+          </div>
+          <pre><code>${escapeHTML(code.join("\n"))}</code></pre>
+        </div>
+      `;
     }
 
     closeList();
     closeTable();
+
     return html;
   }
 
   function addCopyButtons(container) {
     container.querySelectorAll(".copy-code").forEach(button => {
       button.addEventListener("click", async () => {
-        const code = button.closest(".code-block")?.querySelector("code")?.textContent || "";
+        const code = button
+          .closest(".code-block")
+          ?.querySelector("code")
+          ?.textContent || "";
 
         try {
           await navigator.clipboard.writeText(code);
@@ -302,7 +481,9 @@
           button.textContent = "Gagal menyalin";
         }
 
-        setTimeout(() => button.textContent = "Salin kode", 1600);
+        setTimeout(() => {
+          button.textContent = "Salin kode";
+        }, 1600);
       });
     });
   }
@@ -316,7 +497,9 @@
 
     messages.forEach(message => {
       const row = document.createElement("div");
-      row.className = "message " + (message.role === "user" ? "user" : "assistant");
+
+      row.className = "message " +
+        (message.role === "user" ? "user" : "assistant");
 
       if (message.role !== "user") {
         const avatar = document.createElement("div");
@@ -358,22 +541,38 @@
     event.preventDefault();
 
     const text = input.value.trim();
+
     if (!text || busy) return;
 
-    if (!currentChat()) createChat();
+    if (!currentChat()) {
+      createChat();
+    }
 
     const chat = currentChat();
-    chat.messages.push({ role: "user", content: text });
-    chat.title = chat.messages.length === 1 ? makeTitle(text) : chat.title;
+
+    chat.messages.push({
+      role: "user",
+      content: text
+    });
+
+    chat.title = chat.messages.length === 1
+      ? makeTitle(text)
+      : chat.title;
+
     chat.updatedAt = Date.now();
 
     input.value = "";
     input.style.height = "auto";
+
     busy = true;
     sendButton.disabled = true;
     sendButton.textContent = "…";
 
-    chat.messages.push({ role: "assistant", content: "" });
+    chat.messages.push({
+      role: "assistant",
+      content: ""
+    });
+
     renderHistory();
     renderMessages();
 
@@ -390,10 +589,12 @@
         reply || "Maaf, belum ada jawaban.";
     } catch (error) {
       chat.messages[chat.messages.length - 1].content =
-        "Maaf, CLASS-AI belum bisa terhubung.\n\n" + (error.message || "");
+        "Maaf, CLASS-AI belum bisa terhubung.\n\n" +
+        (error.message || "");
     }
 
     chat.updatedAt = Date.now();
+
     save();
     renderHistory();
     renderMessages();
@@ -403,7 +604,7 @@
     sendButton.textContent = "↑";
   });
 
-  // Memulai dengan chat kosong, tanpa menghapus riwayat sebelumnya.
+  // Mulai dengan chat kosong tanpa menghapus riwayat lama.
   if (conversations.length) {
     activeId = conversations[0].id;
   } else {
