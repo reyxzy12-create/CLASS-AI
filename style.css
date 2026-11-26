@@ -997,3 +997,116 @@ button { cursor: pointer; }
   .image-preview { margin-left: 0; max-width: 100%; }
   .composer-main { gap: 7px; }
 }
+
+
+/* CLASS-AI Code / Preview switcher */
+.code-toolbar {
+  min-height: 48px;
+}
+
+.code-language {
+  color: #c5c6d3;
+  font-size: 10px;
+  letter-spacing: .08em;
+}
+
+.code-tabs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.code-tab,
+.preview-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #b9bac8;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.code-tab.active,
+.preview-tab.active {
+  background: #3a3d52;
+  border-color: #50536b;
+  color: #fff;
+}
+
+.tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.play-icon {
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+}
+
+.code-copy-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 7px 11px 0;
+  background: #171923;
+}
+
+.code-copy-row .copy-code {
+  padding: 4px 8px;
+}
+
+.code-view pre {
+  margin-top: 0;
+}
+
+.code-preview-view {
+  padding: 10px;
+  background: #fff;
+}
+
+.code-preview-view iframe {
+  display: block;
+  width: 100%;
+  min-height: 340px;
+  height: 52vh;
+  max-height: 650px;
+  border: 0;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.code-preview-view[hidden],
+.code-view[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 480px) {
+  .code-tab,
+  .preview-tab {
+    min-height: 30px;
+    padding: 5px 8px;
+    gap: 4px;
+    font-size: 10px;
+  }
+
+  .code-preview-view {
+    padding: 6px;
+  }
+
+  .code-preview-view iframe {
+    min-height: 300px;
+    height: 55vh;
+  }
+}
