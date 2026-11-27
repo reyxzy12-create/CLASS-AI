@@ -1228,3 +1228,80 @@ button { cursor: pointer; }
   box-shadow: 0 5px 16px rgba(0,0,0,.18);
 }
 .theme-dark .top-settings-btn { background: #242424; color: #eee; border-color: #444; }
+
+/* TOMBOL NEW CHAT DAN KUNCI RIWAYAT */
+.sidebar-chat-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sidebar-chat-actions .new-chat {
+  min-width: 0;
+  padding: 12px 10px;
+  font-size: 12px;
+}
+
+.history-toggle-button {
+  min-width: 0;
+  padding: 10px 7px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  color: #222;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.history-toggle-button:hover {
+  background: #f2f2f2;
+}
+
+.theme-dark .history-toggle-button {
+  background: #242424;
+  color: #eee;
+  border-color: #444;
+}
+
+/* KUNCI RIWAYAT */
+.history-protected {
+  position: relative;
+  min-height: 42px;
+}
+
+.history-is-locked #chatHistory {
+  filter: blur(5px);
+  opacity: .55;
+  pointer-events: none;
+  user-select: none;
+  max-height: 42vh;
+}
+
+/* Tombol riwayat tidak ditampilkan di dalam daftar */
+.history-open-button {
+  display: none !important;
+}
+
+.history-lock-screen[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 480px) {
+  .sidebar-chat-actions {
+    gap: 6px;
+  }
+
+  .sidebar-chat-actions .new-chat {
+    font-size: 11px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .history-toggle-button {
+    font-size: 10px;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+}
