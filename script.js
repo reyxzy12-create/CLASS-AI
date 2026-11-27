@@ -1,4 +1,3 @@
-
 (() => {
   const $ = (selector) => document.querySelector(selector);
   const sidebar = $("#sidebar");
@@ -9,24 +8,51 @@
 
   let conversations = [];
   let activeId = null;
+  let draftChat = null;
   let busy = false;
 
   try {
     const saved = JSON.parse(localStorage.getItem(STORE) || "null");
 
     if (Array.isArray(saved)) {
-      conversations = saved;
+      // Chat kosong tidak dianggap sebagai riwayat.
+      conversations = saved.filter(chat =>
+        Array.isArray(chat.messages) &&
+        chat.messages.some(message =>
+          message.role === "user" &&
+          String(message.content || "").trim()
+        )
+      );
+
+      // Perbarui judul lama berdasarkan topik pesan pertama.
+      conversations.forEach(chat => {
+        const firstUserMessage = chat.messages.find(
+          message => message.role === "user"
+        );
+
+        if (firstUserMessage) {
+          chat.title = makeTitle(firstUserMessage.content);
+        }
+      });
     } else {
       // Pindahkan chat lama ke format riwayat baru.
-      const oldMessages = JSON.parse(localStorage.getItem(OLD_STORE) || "[]");
+      const oldMessages = JSON.parse(
+        localStorage.getItem(OLD_STORE) || "[]"
+      );
 
       if (oldMessages.length) {
-        conversations = [{
-          id: String(Date.now()),
-          title: makeTitle(oldMessages[0]?.content || "Percakapan lama"),
-          messages: oldMessages,
-          updatedAt: Date.now()
-        }];
+        const firstUserMessage = oldMessages.find(
+          message => message.role === "user"
+        );
+
+        if (firstUserMessage) {
+          conversations = [{
+            id: String(Date.now()),
+            title: makeTitle(firstUserMessage.content),
+            messages: oldMessages,
+            updatedAt: Date.now()
+          }];
+        }
       }
     }
   } catch {
@@ -41,80 +67,121 @@
     }
   }
 
-  // MEMBUAT NAMA RIWAYAT CHAT OTOMATIS
+  // Membuat judul riwayat berdasarkan topik.
   function makeTitle(text) {
-    const prompt = String(text || "")
-      .replace(/\s+/g, " ")
-      .trim();
-
+    const prompt = String(text || "").replace(/\s+/g, " ").trim();
     const lower = prompt.toLowerCase();
 
-    if (/^(hai+|halo+|hello+|hi+|hey+|assalamualaikum)[!. ]*$/i.test(prompt)) {
-      return "Sapaan hangat";
+    if (!prompt) return "Percakapan baru";
+
+    if (/^(hai+|halo+|hello+|hi+|hey+|assalamualaikum|selamat pagi|selamat siang|selamat malam)[!. ]*$/i.test(prompt)) {
+      return "Sapaan Hangat";
     }
 
-    const languages = [
-      ["html", "HTML"],
-      ["css", "CSS"],
-      ["javascript|\\bjs\\b", "JavaScript"],
-      ["python", "Python"],
-      ["java", "Java"],
-      ["php", "PHP"]
+    const codingTopics = [
+      { pattern: /\bhtml\b/i, name: "HTML" },
+      { pattern: /\bcss\b/i, name: "CSS" },
+      { pattern: /javascript|\bjs\b/i, name: "JavaScript" },
+      { pattern: /\bpython\b/i, name: "Python" },
+      { pattern: /\bphp\b/i, name: "PHP" },
+      { pattern: /\bjava\b/i, name: "Java" },
+      { pattern: /\b(react|reactjs)\b/i, name: "React" },
+      { pattern: /\b(node\.js|nodejs)\b/i, name: "Node.js" }
     ];
 
-    for (const [pattern, name] of languages) {
-      if (new RegExp(pattern, "i").test(lower)) {
-        if (/buatkan|bikin|buat|tuliskan|tulis|generate|contoh kode/.test(lower)) {
-          const detail = lower.includes("sederhana") ? " sederhana" : "";
-          return "Pembuatan " + name + detail;
+    const isCreate =
+      /buatkan|bikinkan|bikin|buat|rancang|generate|tulis(kan)?|coding|kode/.test(lower);
+
+    const isExplain =
+      /jelaskan|terangkan|pengertian|apa itu|bagaimana cara|cara kerja|belajar/.test(lower);
+
+    for (const topic of codingTopics) {
+      if (topic.pattern.test(prompt)) {
+        if (isCreate) {
+          const simple =
+            /sederhana|simple|basic|dasar/.test(lower)
+              ? " Sederhana"
+              : "";
+
+          return `Pembuatan ${topic.name}${simple}`;
         }
 
-        if (/jelaskan|pengertian|apa itu|belajar/.test(lower)) {
-          return "Belajar " + name;
+        if (isExplain) {
+          return `Belajar ${topic.name}`;
         }
 
-        return name + " dan pemrograman";
+        return `${topic.name} dan Pemrograman`;
       }
     }
 
-    if (/buatkan|bikin|buat|rancang/.test(lower)) {
-      return "Pembuatan " + prompt
-        .replace(/^(tolong\s+)?(buatkan|bikin|buat|rancang)\s+/i, "")
-        .replace(/\b(dong|ya|tolong|please)\b/gi, "")
-        .trim()
-        .slice(0, 24);
+    const topicRules = [
+      [/\b(matematika|aljabar|geometri|persamaan|pecahan|kalkulus)\b/i, "Belajar Matematika"],
+      [/\b(ipa|fisika|kimia|biologi|sains)\b/i, "Belajar Sains"],
+      [/\b(sejarah|kemerdekaan|kerajaan|pahlawan)\b/i, "Pembahasan Sejarah"],
+      [/\b(inggris|english|grammar|vocabulary)\b/i, "Belajar Bahasa Inggris"],
+      [/\b(terjemah|translate|translation)\b/i, "Terjemahan Teks"],
+      [/\b(ringkas|rangkuman|resume|summar(y|ize))\b/i, "Rangkuman Materi"],
+      [/\b(karangan|cerpen|cerita|puisi|novel)\b/i, "Penulisan Kreatif"],
+      [/\b(desain|logo|poster|banner|ilustrasi)\b/i, "Ide Desain Kreatif"],
+      [/\b(ide|inspirasi|gagasan)\b/i, "Ide Kreatif"],
+      [/\b(tugas|sekolah|pelajaran|materi|ujian)\b/i, "Bantuan Belajar Sekolah"],
+      [/\b(ai|artificial intelligence|kecerdasan buatan)\b/i, "Pembahasan AI"],
+      [/\b(website|web|landing page|situs)\b/i, "Pembuatan Website"],
+      [/\b(foto|gambar|image)\b/i, "Pengolahan Gambar"],
+      [/\b(game|permainan|gaming)\b/i, "Pembahasan Game"]
+    ];
+
+    for (const [pattern, title] of topicRules) {
+      if (pattern.test(prompt)) return title;
     }
 
-    if (/jelaskan|terangkan|apa itu|pengertian/.test(lower)) {
-      return "Penjelasan " + prompt
-        .replace(/^(tolong\s+)?(jelaskan|terangkan|apa itu|pengertian)\s*/i, "")
-        .trim()
-        .slice(0, 24);
-    }
+    // Judul cadangan: ambil inti kalimat.
+    let subject = prompt
+      .replace(/^(tolong\s+)?(bisa\s+)?(buatkan|bikinkan|bikin|buat|jelaskan|terangkan|carikan|cari|berikan|beri|tolong|minta|apa itu)\s*/i, "")
+      .replace(/\b(dong|ya|tolong|please|untuk saya|buat saya)\b/gi, " ")
+      .replace(/[?!.,]+$/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    return prompt.slice(0, 30) || "Percakapan baru";
+    if (!subject) subject = prompt;
+
+    const words = subject.split(" ").filter(Boolean).slice(0, 5);
+    const clean = words.join(" ");
+
+    return clean.length > 1
+      ? clean.charAt(0).toLocaleUpperCase("id-ID") + clean.slice(1)
+      : "Percakapan Baru";
   }
 
   function currentChat() {
-    return conversations.find(chat => chat.id === activeId);
+    return conversations.find(chat => chat.id === activeId) ||
+      (draftChat && draftChat.id === activeId ? draftChat : null);
   }
 
+  // Chat baru hanya berupa draft sampai pesan pertama dikirim.
   function createChat() {
-    const chat = {
+    draftChat = {
       id: String(Date.now()) + Math.random().toString(16).slice(2),
       title: "Percakapan baru",
       messages: [],
       updatedAt: Date.now()
     };
 
-    conversations.unshift(chat);
-    activeId = chat.id;
-    save();
+    activeId = draftChat.id;
     renderHistory();
     renderMessages();
+
+    return draftChat;
   }
 
-  // Tampilkan semua riwayat dengan tombol hapus masing-masing.
+  function activateDraft(chat) {
+    if (!chat || chat !== draftChat) return;
+
+    conversations.unshift(chat);
+    draftChat = null;
+  }
+
+  // Tampilkan riwayat dengan tombol hapus masing-masing.
   function renderHistory() {
     const history = $("#chatHistory");
     if (!history) return;
@@ -151,6 +218,7 @@
         remove.className = "delete-history";
         remove.textContent = "×";
         remove.title = "Hapus riwayat";
+
         remove.setAttribute(
           "aria-label",
           "Hapus riwayat " + item.textContent
@@ -175,9 +243,7 @@
               ? conversations[0].id
               : null;
 
-            if (!activeId) {
-              createChat();
-            }
+            draftChat = null;
           }
 
           save();
@@ -202,15 +268,8 @@
       button.classList.toggle("active", button.dataset.page === name);
     });
 
-    const titles = {
-      chat: "CLASS-AI",
-      ml: "FAKE ML",
-      about: "ABOUT CLASS IX"
-    };
-
-    $("#topTitle").textContent = titles[name] || "CLASS-AI";
-    sidebar.classList.remove("open");
-    scrim.classList.remove("show");
+    sidebar?.classList.remove("open");
+    scrim?.classList.remove("show");
   }
 
   document.querySelectorAll("[data-page]").forEach(button => {
@@ -282,6 +341,7 @@
     removeImage.type = "button";
     removeImage.className = "remove-image";
     removeImage.textContent = "×";
+
     removeImage.setAttribute("aria-label", "Batalkan foto");
 
     removeImage.addEventListener("click", () => {
@@ -318,9 +378,7 @@
   function inlineFormat(value) {
     let text = escapeHTML(value);
 
-    // Ubah tag br yang dikirim AI menjadi baris baru HTML.
     text = text.replace(/&lt;br\s*\/?&gt;/gi, "<br>");
-
     text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
     text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
@@ -349,7 +407,6 @@
       }
     }
 
-    // Tutup tabel sekaligus pembungkusnya.
     function closeTable() {
       if (inTable) {
         html += "</tbody></table></div>";
@@ -364,12 +421,10 @@
 
       return `
         <div class="code-block">
-
           <div class="code-toolbar">
             <span class="code-language">CODE</span>
 
             <div class="code-tabs" role="group" aria-label="Tampilan kode">
-
               <button
                 type="button"
                 class="code-tab active"
@@ -387,20 +442,15 @@
               >
                 <span class="tab-icon play-icon" aria-hidden="true">▶</span>
               </button>
-
             </div>
           </div>
 
           <div class="code-view">
-
             <div class="code-copy-row">
-              <button type="button" class="copy-code">
-                ▢ Salin
-              </button>
+              <button type="button" class="copy-code">▢ Salin</button>
             </div>
 
             <pre><code>${escapeHTML(codeText)}</code></pre>
-
           </div>
 
           <div class="code-preview-view" hidden>
@@ -411,7 +461,6 @@
           </div>
 
           <script type="application/json" class="preview-source">${safeSource}</script>
-
         </div>
       `;
     }
@@ -419,7 +468,6 @@
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
-      // Blok kode Markdown.
       if (line.trim().startsWith("```")) {
         closeList();
         closeTable();
@@ -560,7 +608,6 @@
       html += `<p>${inlineFormat(line)}</p>`;
     }
 
-    // Jika blok kode belum ditutup.
     if (inCode) {
       html += makeCodeBlock(code.join("\n"));
     }
@@ -718,6 +765,9 @@
     }
 
     const chat = currentChat();
+    const isFirstMessage = chat.messages.length === 0;
+
+    if (isFirstMessage) activateDraft(chat);
 
     chat.messages.push({
       role: "user",
@@ -778,7 +828,8 @@
   if (conversations.length) {
     activeId = conversations[0].id;
   } else {
-    createChat();
+    activeId = null;
+    draftChat = null;
   }
 
   renderHistory();
