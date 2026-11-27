@@ -477,6 +477,29 @@
         URL.revokeObjectURL(url);
         reject(new Error("Foto tidak bisa dibaca."));
       };
+    });
+
+    const canvas = document.createElement("canvas");
+    const maxSide = 1280;
+    const scale = Math.min(
+      1,
+      maxSide / Math.max(image.width, image.height)
+    );
+
+    canvas.width = Math.round(image.width * scale);
+    canvas.height = Math.round(image.height * scale);
+
+    const context = canvas.getContext("2d");
+    context.drawImage(
+      image,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    return canvas.toDataURL("image/jpeg", 0.82);
+  }
 
       img.src = url;
     });
@@ -956,8 +979,8 @@
 
         if (message.image) {
           const sentImage = document.createElement("img");
-
           sentImage.src = message.image;
+
           sentImage.alt = "Foto yang dikirim";
           sentImage.className = "sent-chat-image";
 
