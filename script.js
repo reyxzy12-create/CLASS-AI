@@ -1,25 +1,16 @@
 (() => {
-  const $ = (selector) => document.querySelector(selector);
+  "use strict";
+
+  const $ = selector => document.querySelector(selector);
+
   const sidebar = $("#sidebar");
   const scrim = $("#scrim");
 
-  // Tombol Settings di kanan atas menggantikan indikator READY.
-  const topPill = document.querySelector(".top-pill");
-  if (topPill) {
-    const settingsButton = document.createElement("button");
-    settingsButton.type = "button";
-    settingsButton.className = "top-pill top-settings-button";
-    settingsButton.setAttribute("data-page", "settings");
-    settingsButton.setAttribute("aria-label", "Buka Settings");
-    settingsButton.title = "Settings";
-    settingsButton.innerHTML = '<span aria-hidden="true">⚙</span>';
-    settingsButton.style.cursor = "pointer";
-    settingsButton.style.font = "inherit";
-    topPill.replaceWith(settingsButton);
-  }
-
   const STORE = "forClassIX_conversations_v2";
   const OLD_STORE = "forClassIX_chat_v1";
+
+  const LOCK_META = "classAI_history_lock_v1";
+  const LOCK_VAULT = "classAI_history_vault_v1";
 
   let conversations = [];
   let activeId = null;
@@ -27,35 +18,36 @@
   let busy = false;
   let selectedImageData = null;
 
-  const LOCK_META = "classAI_history_lock_v1";
-  const LOCK_VAULT = "classAI_history_vault_v1";
-
-  // Blur riwayat ketika dikunci.
-  const historyElement = $("#chatHistory");
-  const openHistoryButton = document.createElement("button");
-  openHistoryButton.type = "button";
-  openHistoryButton.id = "openLockedHistory";
-  openHistoryButton.className = "settings-action history-open-button";
-  openHistoryButton.textContent = "Buka";
-  openHistoryButton.hidden = true;
-
-  if (historyElement) {
-    historyElement.insertAdjacentElement("afterend", openHistoryButton);
-  }
-
-  function setHistoryLocked(locked) {
-    if (historyElement) {
-      historyElement.style.filter = locked ? "blur(5px)" : "none";
-      historyElement.style.pointerEvents = locked ? "none" : "";
-      historyElement.style.userSelect = locked ? "none" : "";
-      historyElement.setAttribute("aria-hidden", String(locked));
-    }
-
-    openHistoryButton.hidden = !locked;
-  }
-
   let lockMeta = null;
   let vaultKey = null;
+
+  const historyElement = $("#chatHistory");
+  const historyButton = $("#historyOpenButton");
+
+  const lockScreen = $("#historyLockScreen");
+  const lockForm = $("#historyUnlockForm");
+  const unlockPin = $("#unlockPin");
+  const lockStatus = $("#lockStatus");
+
+  const lockPinInput = $("#lockPin");
+  const lockPinConfirm = $("#lockPinConfirm");
+  const lockCurrentPin = $("#lockCurrentPin");
+
+  const messagesEl = $("#messages");
+  const welcome = $("#welcome");
+  const input = $("#chatInput");
+  const sendButton = $("#sendButton");
+
+  const imageInput = $("#imageInput");
+  const imagePreview = $("#imagePreview");
+
+  const enterToSend = $("#enterToSend");
+
+  let savingPromise = Promise.resolve();
+
+  // =====================================================
+  // STORAGE DAN ENKRIPSI
+  // =====================================================
 
   try {
     lockMeta = JSON.parse(
@@ -65,26 +57,47 @@
     lockMeta = null;
   }
 
+  function toBase64(bytes) {
+    const data = new Uint8Array(bytes);
+    let binary = "";
+
+    for (let i = 0; i < data.length; i += 0x8000) {
+      binary += String.fromCharCode(
+        ...data.subarray(i, i + 0x8000)
+      );
+    }
+
+    return btoa(binary);
+  }
+
+  function fromBase64(value) {
+    const binary = atob(value);
+
+    return Uint8Array.from(
+      binary,
+      char => char.charCodeAt(0)
+    );
+  }
+
   async function deriveVaultKey(pin, saltText) {
-    const enc = new TextEncoder();
+    if (!window.crypto?.subtle) {
+      throw new Error(
+        "Browser tidak mendukung enkripsi aman. Gunakan browser terbaru melalui HTTPS."
+      );
+    }
 
     const material = await crypto.subtle.importKey(
       "raw",
-      enc.encode(pin),
+      new TextEncoder().encode(pin),
       "PBKDF2",
       false,
       ["deriveKey"]
     );
 
-    const salt = Uint8Array.from(
-      atob(saltText),
-      c => c.charCodeAt(0)
-    );
-
     return crypto.subtle.deriveKey(
       {
         name: "PBKDF2",
-        salt,
+        salt: fromBase64(saltText),
         iterations: 250000,
         hash: "SHA-256"
       },
@@ -98,150 +111,161 @@
     );
   }
 
-  function toBase64(bytes) {
-    const data = new Uint8Array(bytes);
-    let binary = "";
-
-    for (
-      let offset = 0;
-      offset < data.length;
-      offset += 0x8000
-    ) {
-      binary += String.fromCharCode(
-        ...data.subarray(offset, offset + 0x8000)
-      );
-    }
-
-    return btoa(binary);
-  }
-
   async function encryptHistory(key, value) {
     const iv = crypto.getRandomValues(
       new Uint8Array(12)
     );
 
-    const data = await crypto.subtle.encrypt(
+    const encrypted = await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
         iv
       },
       key,
-      new TextEncoder().encode(
-        JSON.stringify(value)
-      )
+      new TextEncoder().encode(JSON.stringify(value))
     );
 
     return {
       iv: toBase64(iv),
-      data: toBase64(data)
+      data: toBase64(encrypted)
     };
   }
 
   async function decryptHistory(key, vault) {
-    const iv = Uint8Array.from(
-      atob(vault.iv),
-      c => c.charCodeAt(0)
-    );
+    if (!vault || !vault.iv || !vault.data) {
+      throw new Error("Data riwayat terenkripsi tidak ditemukan.");
+    }
 
-    const data = Uint8Array.from(
-      atob(vault.data),
-      c => c.charCodeAt(0)
-    );
-
-    const plain = await crypto.subtle.decrypt(
+    const decrypted = await crypto.subtle.decrypt(
       {
         name: "AES-GCM",
-        iv
+        iv: fromBase64(vault.iv)
       },
       key,
-      data
+      fromBase64(vault.data)
     );
 
-    return JSON.parse(
-      new TextDecoder().decode(plain)
+    const result = JSON.parse(
+      new TextDecoder().decode(decrypted)
     );
+
+    if (!Array.isArray(result)) {
+      throw new Error("Format riwayat tidak valid.");
+    }
+
+    return result;
   }
 
-  try {
-    const saved = lockMeta
-      ? null
-      : JSON.parse(
-          localStorage.getItem(STORE) || "null"
-        );
-
-    if (Array.isArray(saved)) {
-      conversations = saved.filter(chat =>
-        Array.isArray(chat.messages) &&
-        chat.messages.some(message =>
-          message.role === "user" &&
-          String(message.content || "").trim()
-        )
+  function readVault() {
+    try {
+      return JSON.parse(
+        localStorage.getItem(LOCK_VAULT) || "null"
       );
+    } catch {
+      return null;
+    }
+  }
 
-      conversations.forEach(chat => {
-        const firstUserMessage = chat.messages.find(
-          message => message.role === "user"
-        );
+  function setHistoryLocked(locked) {
+    document.documentElement.classList.toggle(
+      "history-is-locked",
+      Boolean(locked)
+    );
 
-        if (firstUserMessage) {
-          chat.title = makeTitle(
-            firstUserMessage.content
+    if (historyElement) {
+      historyElement.setAttribute(
+        "aria-hidden",
+        String(Boolean(locked))
+      );
+    }
+
+    updateHistoryButton();
+  }
+
+  function updateHistoryButton() {
+    if (!historyButton) return;
+
+    if (lockMeta && !vaultKey) {
+      historyButton.textContent = "Buka Riwayat";
+      historyButton.setAttribute(
+        "aria-label",
+        "Buka riwayat dengan PIN"
+      );
+    } else {
+      historyButton.textContent = "Kunci Riwayat";
+      historyButton.setAttribute(
+        "aria-label",
+        "Kunci riwayat chat"
+      );
+    }
+  }
+
+  function updateLockStatus() {
+    if (!lockStatus) return;
+
+    if (!lockMeta) {
+      lockStatus.textContent = "Kunci belum aktif";
+    } else if (vaultKey) {
+      lockStatus.textContent =
+        "Kunci aktif · Riwayat sedang terbuka";
+    } else {
+      lockStatus.textContent =
+        "Kunci aktif · Riwayat terenkripsi";
+    }
+  }
+
+  function save() {
+    savingPromise = savingPromise.then(async () => {
+      try {
+        if (lockMeta) {
+          if (!vaultKey) return;
+
+          const encrypted = await encryptHistory(
+            vaultKey,
+            conversations
+          );
+
+          localStorage.setItem(
+            LOCK_VAULT,
+            JSON.stringify(encrypted)
+          );
+
+          localStorage.removeItem(STORE);
+        } else {
+          localStorage.setItem(
+            STORE,
+            JSON.stringify(conversations)
           );
         }
-      });
-    } else {
-      const oldMessages = JSON.parse(
-        localStorage.getItem(OLD_STORE) || "[]"
-      );
+      } catch (error) {
+        console.error("Penyimpanan gagal:", error);
 
-      if (oldMessages.length) {
-        const firstUserMessage = oldMessages.find(
-          message => message.role === "user"
-        );
-
-        if (firstUserMessage) {
-          conversations = [{
-            id: String(Date.now()),
-            title: makeTitle(firstUserMessage.content),
-            messages: oldMessages,
-            updatedAt: Date.now()
-          }];
-        }
-      }
-    }
-  } catch {
-    conversations = [];
-  }
-
-  async function save() {
-    try {
-      // Jangan menyimpan riwayat terkunci sebagai teks biasa.
-      if (lockMeta && !vaultKey) return;
-
-      if (lockMeta && vaultKey) {
-        const encrypted = await encryptHistory(
-          vaultKey,
-          conversations
-        );
-
-        localStorage.setItem(
-          LOCK_VAULT,
-          JSON.stringify(encrypted)
-        );
-
-        localStorage.removeItem(STORE);
-      } else {
-        localStorage.setItem(
-          STORE,
-          JSON.stringify(conversations)
+        alert(
+          "Riwayat gagal disimpan. Periksa ruang penyimpanan browser."
         );
       }
-    } catch {
-      alert(
-        "Penyimpanan browser penuh atau enkripsi tidak tersedia."
-      );
-    }
+    });
+
+    return savingPromise;
   }
+
+  function normalizeConversations(list) {
+    if (!Array.isArray(list)) return [];
+
+    return list.filter(chat =>
+      chat &&
+      Array.isArray(chat.messages) &&
+      chat.messages.some(message =>
+        message &&
+        message.role === "user" &&
+        String(message.content || "").trim()
+      )
+    );
+  }
+
+  // =====================================================
+  // JUDUL OTOMATIS
+  // =====================================================
 
   function makeTitle(text) {
     const prompt = String(text || "")
@@ -298,7 +322,7 @@
       [/\b(sejarah|kemerdekaan|kerajaan|pahlawan)\b/i, "Pembahasan Sejarah"],
       [/\b(inggris|english|grammar|vocabulary)\b/i, "Belajar Bahasa Inggris"],
       [/\b(terjemah|translate|translation)\b/i, "Terjemahan Teks"],
-      [/\b(ringkas|rangkuman|resume|summar(y|ize))\b/i, "Rangkuman Materi"],
+      [/\b(ringkas|rangkuman|resume|summary|summarize)\b/i, "Rangkuman Materi"],
       [/\b(karangan|cerpen|cerita|puisi|novel)\b/i, "Penulisan Kreatif"],
       [/\b(desain|logo|poster|banner|ilustrasi)\b/i, "Ide Desain Kreatif"],
       [/\b(ide|inspirasi|gagasan)\b/i, "Ide Kreatif"],
@@ -322,17 +346,79 @@
 
     if (!subject) subject = prompt;
 
-    const words = subject
+    const clean = subject
       .split(" ")
       .filter(Boolean)
-      .slice(0, 5);
-
-    const clean = words.join(" ");
+      .slice(0, 5)
+      .join(" ");
 
     return clean.length > 1
       ? clean.charAt(0).toLocaleUpperCase("id-ID") + clean.slice(1)
       : "Percakapan Baru";
   }
+
+  // =====================================================
+  // MEMUAT RIWAYAT
+  // =====================================================
+
+  if (!lockMeta) {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(STORE) || "null"
+      );
+
+      if (Array.isArray(saved)) {
+        conversations = normalizeConversations(saved);
+
+        conversations.forEach(chat => {
+          const firstUser = chat.messages.find(
+            message => message.role === "user"
+          );
+
+          if (firstUser) {
+            chat.title = makeTitle(firstUser.content);
+          }
+
+          if (!chat.updatedAt) {
+            chat.updatedAt = Date.now();
+          }
+        });
+      } else {
+        const oldMessages = JSON.parse(
+          localStorage.getItem(OLD_STORE) || "[]"
+        );
+
+        if (Array.isArray(oldMessages) && oldMessages.length) {
+          const firstUser = oldMessages.find(
+            message => message.role === "user"
+          );
+
+          if (firstUser) {
+            conversations = [{
+              id: String(Date.now()),
+              title: makeTitle(firstUser.content),
+              messages: oldMessages,
+              updatedAt: Date.now()
+            }];
+
+            localStorage.setItem(
+              STORE,
+              JSON.stringify(conversations)
+            );
+
+            localStorage.removeItem(OLD_STORE);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Gagal membaca riwayat:", error);
+      conversations = [];
+    }
+  }
+
+  // =====================================================
+  // CHAT
+  // =====================================================
 
   function currentChat() {
     return conversations.find(
@@ -369,10 +455,9 @@
   }
 
   function renderHistory() {
-    const history = $("#chatHistory");
-    if (!history) return;
+    if (!historyElement) return;
 
-    history.innerHTML = "";
+    historyElement.innerHTML = "";
 
     conversations
       .slice()
@@ -383,16 +468,18 @@
 
         const item = document.createElement("button");
         item.type = "button";
-        item.className = "history-item" +
+        item.className =
+          "history-item" +
           (chat.id === activeId ? " selected" : "");
 
         item.textContent = chat.title || "Percakapan baru";
         item.title = item.textContent;
 
         item.addEventListener("click", () => {
-          if (busy) return;
+          if (busy || (lockMeta && !vaultKey)) return;
 
           activeId = chat.id;
+
           renderHistory();
           renderMessages();
           showPage("chat");
@@ -403,19 +490,23 @@
         remove.className = "delete-history";
         remove.textContent = "×";
         remove.title = "Hapus riwayat";
-
         remove.setAttribute(
           "aria-label",
           "Hapus riwayat " + item.textContent
         );
 
-        remove.addEventListener("click", event => {
+        remove.addEventListener("click", async event => {
           event.stopPropagation();
 
           if (busy) {
             alert(
               "Tunggu sampai jawaban selesai sebelum menghapus riwayat."
             );
+            return;
+          }
+
+          if (lockMeta && !vaultKey) {
+            alert("Buka riwayat terlebih dahulu.");
             return;
           }
 
@@ -426,20 +517,18 @@
           );
 
           if (deletingActive) {
-            activeId = conversations.length
-              ? conversations[0].id
-              : null;
-
+            activeId = conversations[0]?.id || null;
             draftChat = null;
           }
 
-          save();
+          await save();
+
           renderHistory();
           renderMessages();
         });
 
         row.append(item, remove);
-        history.appendChild(row);
+        historyElement.appendChild(row);
       });
   }
 
@@ -468,36 +557,83 @@
     });
   });
 
-  $("#menuButton").addEventListener("click", () => {
-    sidebar.classList.add("open");
-    scrim.classList.add("show");
+  // Tombol Settings kanan atas
+  $("#topSettingsButton")?.addEventListener("click", () => {
+    showPage("settings");
   });
 
-  $("#closeSidebar").addEventListener("click", () => {
-    sidebar.classList.remove("open");
-    scrim.classList.remove("show");
+  $("#menuButton")?.addEventListener("click", () => {
+    sidebar?.classList.add("open");
+    scrim?.classList.add("show");
   });
 
-  scrim.addEventListener("click", () => {
-    sidebar.classList.remove("open");
-    scrim.classList.remove("show");
+  $("#closeSidebar")?.addEventListener("click", () => {
+    sidebar?.classList.remove("open");
+    scrim?.classList.remove("show");
   });
 
-  $("#newChat").addEventListener("click", () => {
+  scrim?.addEventListener("click", () => {
+    sidebar?.classList.remove("open");
+    scrim?.classList.remove("show");
+  });
+
+  $("#newChat")?.addEventListener("click", () => {
     if (busy) return;
 
     createChat();
     showPage("chat");
-    $("#chatInput").focus();
+    input?.focus();
   });
 
-  const messagesEl = $("#messages");
-  const welcome = $("#welcome");
-  const input = $("#chatInput");
-  const sendButton = $("#sendButton");
+  // =====================================================
+  // TOMBOL KUNCI / BUKA RIWAYAT
+  // =====================================================
 
-  const imageInput = $("#imageInput");
-  const imagePreview = $("#imagePreview");
+  historyButton?.addEventListener("click", async () => {
+    if (busy) {
+      alert("Tunggu sampai jawaban AI selesai.");
+      return;
+    }
+
+    if (lockMeta && !vaultKey) {
+      if (lockScreen) {
+        lockScreen.hidden = false;
+        if (unlockPin) {
+          unlockPin.value = "";
+          unlockPin.focus();
+        }
+      }
+
+      return;
+    }
+
+    if (!lockMeta) {
+      alert(
+        "Buat PIN terlebih dahulu melalui Settings untuk mengunci riwayat."
+      );
+
+      showPage("settings");
+      $("#lockPin")?.focus();
+      return;
+    }
+
+    try {
+      await save();
+
+      vaultKey = null;
+
+      setHistoryLocked(true);
+      updateLockStatus();
+
+    } catch (error) {
+      console.error(error);
+      alert("Riwayat gagal dikunci.");
+    }
+  });
+
+  // =====================================================
+  // UPLOAD FOTO
+  // =====================================================
 
   async function fileToDataURL(file) {
     if (file.size > 12 * 1024 * 1024) {
@@ -535,7 +671,13 @@
     canvas.width = Math.round(image.width * scale);
     canvas.height = Math.round(image.height * scale);
 
-    canvas.getContext("2d").drawImage(
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Foto gagal diproses.");
+    }
+
+    context.drawImage(
       image,
       0,
       0,
@@ -546,9 +688,19 @@
     return canvas.toDataURL("image/jpeg", 0.82);
   }
 
-  imageInput.addEventListener("change", async () => {
-    const file = imageInput.files &&
-      imageInput.files[0];
+  function clearSelectedImage() {
+    if (imageInput) imageInput.value = "";
+
+    selectedImageData = null;
+
+    if (imagePreview) {
+      imagePreview.innerHTML = "";
+      imagePreview.hidden = true;
+    }
+  }
+
+  imageInput?.addEventListener("change", async () => {
+    const file = imageInput.files?.[0];
 
     if (!file) return;
 
@@ -575,7 +727,6 @@
       removeImage.type = "button";
       removeImage.className = "remove-image";
       removeImage.textContent = "×";
-
       removeImage.setAttribute(
         "aria-label",
         "Batalkan foto"
@@ -600,12 +751,9 @@
     }
   });
 
-  function clearSelectedImage() {
-    imageInput.value = "";
-    selectedImageData = null;
-    imagePreview.innerHTML = "";
-    imagePreview.hidden = true;
-  }
+  // =====================================================
+  // MARKDOWN DAN KODE
+  // =====================================================
 
   function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, char => ({
@@ -661,21 +809,21 @@
     let inTable = false;
 
     function closeList() {
-      if (inList) {
-        html += listType === "ol"
-          ? "</ol>"
-          : "</ul>";
+      if (!inList) return;
 
-        inList = false;
-        listType = "";
-      }
+      html += listType === "ol"
+        ? "</ol>"
+        : "</ul>";
+
+      inList = false;
+      listType = "";
     }
 
     function closeTable() {
-      if (inTable) {
-        html += "</tbody></table></div>";
-        inTable = false;
-      }
+      if (!inTable) return;
+
+      html += "</tbody></table></div>";
+      inTable = false;
     }
 
     function makeCodeBlock(codeText) {
@@ -688,21 +836,11 @@
             <span class="code-language">CODE</span>
 
             <div class="code-tabs" role="group" aria-label="Tampilan kode">
-              <button
-                type="button"
-                class="code-tab active"
-                aria-label="Lihat kode"
-                aria-pressed="true"
-              >
+              <button type="button" class="code-tab active" aria-label="Lihat kode" aria-pressed="true">
                 <span class="tab-icon" aria-hidden="true">&gt;_</span>
               </button>
 
-              <button
-                type="button"
-                class="preview-tab"
-                aria-label="Lihat preview"
-                aria-pressed="false"
-              >
+              <button type="button" class="preview-tab" aria-label="Lihat preview" aria-pressed="false">
                 <span class="tab-icon play-icon" aria-hidden="true">▶</span>
               </button>
             </div>
@@ -717,10 +855,7 @@
           </div>
 
           <div class="code-preview-view" hidden>
-            <iframe
-              title="Preview kode"
-              sandbox="allow-scripts"
-            ></iframe>
+            <iframe title="Preview kode" sandbox="allow-scripts"></iframe>
           </div>
 
           <script type="application/json" class="preview-source">${safeSource}</script>
@@ -769,8 +904,7 @@
         html += `
           <div class="table-wrap">
             <table class="ai-table">
-              <thead>
-                <tr>
+              <thead><tr>
         `;
 
         cells.forEach(cell => {
@@ -778,8 +912,7 @@
         });
 
         html += `
-                </tr>
-              </thead>
+              </tr></thead>
               <tbody>
         `;
 
@@ -883,9 +1016,7 @@
       )?.textContent || "";
 
       const codeView = block.querySelector(".code-view");
-      const previewView = block.querySelector(
-        ".code-preview-view"
-      );
+      const previewView = block.querySelector(".code-preview-view");
 
       const frame = block.querySelector("iframe");
       const source = block.querySelector(".preview-source");
@@ -900,14 +1031,8 @@
           );
 
           frame.srcdoc = htmlSource;
-
         } catch {
-          frame.srcdoc = `
-            <!doctype html>
-            <html>
-              <body>Preview tidak tersedia.</body>
-            </html>
-          `;
+          frame.srcdoc = "<p>Preview tidak tersedia.</p>";
         }
       }
 
@@ -952,7 +1077,6 @@
             }
 
             button.textContent = "✓ Tersalin";
-
           } catch {
             button.textContent = "Gagal menyalin";
           }
@@ -966,10 +1090,13 @@
   }
 
   function renderMessages() {
+    if (!messagesEl || !welcome) return;
+
     const chat = currentChat();
     const messages = chat?.messages || [];
 
     messagesEl.innerHTML = "";
+
     welcome.style.display = messages.length
       ? "none"
       : "block";
@@ -977,16 +1104,14 @@
     messages.forEach(message => {
       const row = document.createElement("div");
 
-      row.className = "message " +
-        (message.role === "user"
-          ? "user"
-          : "assistant");
+      row.className =
+        "message " +
+        (message.role === "user" ? "user" : "assistant");
 
       if (message.role !== "user") {
         const avatar = document.createElement("div");
         avatar.className = "message-avatar";
         avatar.textContent = "✧";
-
         row.appendChild(avatar);
       }
 
@@ -1005,7 +1130,6 @@
 
           bubble.appendChild(sentImage);
         }
-
       } else {
         bubble.innerHTML = renderMarkdown(
           message.content
@@ -1018,9 +1142,16 @@
       messagesEl.appendChild(row);
     });
 
-    $("#chatContent").scrollTop =
-      $("#chatContent").scrollHeight;
+    const chatContent = $("#chatContent");
+
+    if (chatContent) {
+      chatContent.scrollTop = chatContent.scrollHeight;
+    }
   }
+
+  // =====================================================
+  // SARAN CHAT
+  // =====================================================
 
   document.querySelectorAll(".suggestion").forEach(button => {
     button.addEventListener("click", () => {
@@ -1029,14 +1160,18 @@
     });
   });
 
-  input.addEventListener("input", () => {
+  input?.addEventListener("input", () => {
     input.style.height = "auto";
 
     input.style.height =
       Math.min(input.scrollHeight, 150) + "px";
   });
 
-  $("#chatForm").addEventListener("submit", async event => {
+  // =====================================================
+  // KIRIM PESAN KE AI
+  // =====================================================
+
+  $("#chatForm")?.addEventListener("submit", async event => {
     event.preventDefault();
 
     const text = input.value.trim();
@@ -1063,9 +1198,9 @@
         : {})
     });
 
-    chat.title = chat.messages.length === 1
-      ? makeTitle(text)
-      : chat.title;
+    if (isFirstMessage) {
+      chat.title = makeTitle(text);
+    }
 
     chat.updatedAt = Date.now();
 
@@ -1087,6 +1222,10 @@
     renderMessages();
 
     try {
+      if (!window.ClassAI?.reply) {
+        throw new Error("File ai.js tidak berhasil dimuat.");
+      }
+
       const reply = await window.ClassAI.reply(
         chat.messages.slice(0, -1),
         partial => {
@@ -1128,21 +1267,23 @@
     sendButton.textContent = "↑";
   });
 
+  // =====================================================
   // SETTINGS
+  // =====================================================
+
   const setting = (key, fallback = "") =>
     localStorage.getItem("classAI_" + key) ?? fallback;
 
   const appearanceSelect = $("#appearanceSelect");
   const aiStyleSelect = $("#aiStyle");
   const profileName = $("#profileName");
-  const enterToSend = $("#enterToSend");
 
   function applyTheme(theme) {
     const dark =
       theme === "dark" ||
       (
         theme === "system" &&
-        matchMedia(
+        window.matchMedia(
           "(prefers-color-scheme: dark)"
         ).matches
       );
@@ -1189,41 +1330,55 @@
       "ai_style",
       "normal"
     );
-  }
 
-  aiStyleSelect?.addEventListener("change", () => {
-    localStorage.setItem(
-      "classAI_ai_style",
-      aiStyleSelect.value
-    );
-  });
+    aiStyleSelect.addEventListener("change", () => {
+      localStorage.setItem(
+        "classAI_ai_style",
+        aiStyleSelect.value
+      );
+    });
+  }
 
   if (enterToSend) {
     enterToSend.checked =
       setting("enter_to_send", "true") === "true";
+
+    enterToSend.addEventListener("change", () => {
+      localStorage.setItem(
+        "classAI_enter_to_send",
+        String(enterToSend.checked)
+      );
+    });
   }
 
-  enterToSend?.addEventListener("change", () => {
-    localStorage.setItem(
-      "classAI_enter_to_send",
-      String(enterToSend.checked)
-    );
-  });
-
-  input.addEventListener("keydown", event => {
+  input?.addEventListener("keydown", event => {
     if (
       event.key === "Enter" &&
       !event.shiftKey &&
       enterToSend?.checked
     ) {
       event.preventDefault();
-      $("#chatForm").requestSubmit();
+      $("#chatForm")?.requestSubmit();
     }
   });
+
+  // =====================================================
+  // HAPUS SEMUA RIWAYAT
+  // =====================================================
 
   $("#clearAllHistory")?.addEventListener(
     "click",
     async () => {
+      if (busy) {
+        alert("Tunggu sampai jawaban AI selesai.");
+        return;
+      }
+
+      if (lockMeta && !vaultKey) {
+        alert("Buka riwayat dengan PIN terlebih dahulu.");
+        return;
+      }
+
       if (!confirm(
         "Hapus semua riwayat chat? Tindakan ini tidak bisa dibatalkan."
       )) return;
@@ -1239,23 +1394,16 @@
     }
   );
 
-  // LOCK HISTORY
-  const lockScreen = $("#historyLockScreen");
-  const lockForm = $("#historyUnlockForm");
-  const unlockPin = $("#unlockPin");
-  const lockStatus = $("#lockStatus");
-  const lockPinInput = $("#lockPin");
-  const lockPinConfirm = $("#lockPinConfirm");
-  const lockCurrentPin = $("#lockCurrentPin");
+  // =====================================================
+  // INPUT PIN NUMERIK
+  // =====================================================
 
-  openHistoryButton.addEventListener("click", () => {
-    if (lockScreen) {
-      lockScreen.hidden = false;
-      unlockPin?.focus();
-    }
-  });
-
-  [lockCurrentPin, lockPinInput, lockPinConfirm, unlockPin].forEach(field => {
+  [
+    lockCurrentPin,
+    lockPinInput,
+    lockPinConfirm,
+    unlockPin
+  ].forEach(field => {
     if (!field) return;
 
     field.setAttribute("inputmode", "numeric");
@@ -1271,23 +1419,23 @@
     if (field) field.minLength = 4;
   });
 
-  const newPinLabel = document.querySelector('label[for="lockPin"]');
+  const newPinLabel = document.querySelector(
+    'label[for="lockPin"]'
+  );
+
   if (newPinLabel) {
-    newPinLabel.textContent = "PIN baru (minimal 4 digit angka)";
+    newPinLabel.textContent =
+      "PIN baru (minimal 4 digit angka)";
   }
 
-  function updateLockStatus() {
-    if (lockStatus) {
-      lockStatus.textContent = lockMeta
-        ? "Kunci riwayat aktif · terenkripsi"
-        : "Kunci belum aktif";
-    }
-  }
+  // =====================================================
+  // AKTIFKAN / UBAH PIN
+  // =====================================================
 
   async function activateHistoryLock(pin) {
     if (!crypto?.subtle) {
       throw new Error(
-        "Browser ini tidak mendukung enkripsi aman. Gunakan browser terbaru melalui HTTPS."
+        "Enkripsi tidak tersedia. Gunakan browser terbaru melalui HTTPS."
       );
     }
 
@@ -1296,69 +1444,81 @@
     );
 
     const saltText = toBase64(salt);
-
-    const key = await deriveVaultKey(
-      pin,
-      saltText
-    );
+    const key = await deriveVaultKey(pin, saltText);
 
     const vault = await encryptHistory(
       key,
       conversations
     );
 
-    lockMeta = { salt: saltText };
-    vaultKey = key;
+    const newMeta = {
+      salt: saltText,
+      version: 1
+    };
 
-    localStorage.setItem(
-      LOCK_META,
-      JSON.stringify(lockMeta)
-    );
-
+    // Simpan vault dan metadata sebelum menghapus data lama.
     localStorage.setItem(
       LOCK_VAULT,
       JSON.stringify(vault)
     );
 
+    localStorage.setItem(
+      LOCK_META,
+      JSON.stringify(newMeta)
+    );
+
     localStorage.removeItem(STORE);
     localStorage.removeItem(OLD_STORE);
 
-    setHistoryLocked(true);
+    lockMeta = newMeta;
+    vaultKey = key;
+
+    setHistoryLocked(false);
     updateLockStatus();
   }
 
   $("#enableLock")?.addEventListener(
     "click",
     async () => {
-      const pin = lockPinInput.value;
+      const pin = lockPinInput?.value || "";
+      const confirmation = lockPinConfirm?.value || "";
+      const currentPin = lockCurrentPin?.value || "";
 
       if (!/^\d{4,}$/.test(pin)) {
-        return alert("PIN harus berupa angka dan minimal 4 digit.");
+        alert("PIN harus berupa angka dan minimal 4 digit.");
+        return;
       }
 
-      if (pin !== lockPinConfirm.value) {
-        return alert("Konfirmasi PIN tidak cocok.");
+      if (pin !== confirmation) {
+        alert("Konfirmasi PIN tidak cocok.");
+        return;
+      }
+
+      if (busy) {
+        alert("Tunggu sampai jawaban AI selesai.");
+        return;
       }
 
       try {
         if (lockMeta) {
-          if (!lockCurrentPin.value) {
-            return alert(
-              "Masukkan PIN saat ini untuk mengubah PIN."
-            );
+          if (!currentPin) {
+            alert("Masukkan PIN saat ini untuk mengubah PIN.");
+            return;
           }
 
           const currentKey = await deriveVaultKey(
-            lockCurrentPin.value,
+            currentPin,
             lockMeta.salt
           );
 
-          conversations = await decryptHistory(
+          const oldVault = readVault();
+
+          const restored = await decryptHistory(
             currentKey,
-            JSON.parse(
-              localStorage.getItem(LOCK_VAULT) || "null"
-            )
+            oldVault
           );
+
+          conversations = restored;
         }
 
         await activateHistoryLock(pin);
@@ -1367,134 +1527,193 @@
         lockPinConfirm.value = "";
         lockCurrentPin.value = "";
 
+        renderHistory();
+        renderMessages();
+
         alert(
-          "Kunci riwayat berhasil diaktifkan/diperbarui."
+          lockMeta
+            ? "PIN berhasil diaktifkan atau diperbarui."
+            : "PIN berhasil diaktifkan."
         );
 
       } catch (error) {
+        console.error("Pengaturan PIN gagal:", error);
+
         alert(
-          error.message || "Gagal mengaktifkan kunci."
+          "Gagal mengubah PIN. Pastikan PIN saat ini benar dan data riwayat tersedia."
         );
       }
     }
   );
+
+  // =====================================================
+  // NONAKTIFKAN KUNCI
+  // =====================================================
 
   $("#disableLock")?.addEventListener(
     "click",
     async () => {
-      if (!lockMeta || !vaultKey) {
-        return alert(
-          "Buka riwayat dengan PIN terlebih dahulu."
-        );
+      if (!lockMeta) {
+        alert("Kunci riwayat belum diaktifkan.");
+        return;
+      }
+
+      if (busy) {
+        alert("Tunggu sampai jawaban AI selesai.");
+        return;
       }
 
       const pin = prompt(
-        "Masukkan PIN saat ini untuk menghapus kunci:"
+        "Masukkan PIN saat ini untuk menonaktifkan kunci:"
       );
 
       if (pin === null) return;
 
+      if (!/^\d{4,}$/.test(pin)) {
+        alert("PIN harus berupa minimal 4 angka.");
+        return;
+      }
+
       try {
-        const checkKey = await deriveVaultKey(
+        const key = await deriveVaultKey(
           pin,
           lockMeta.salt
         );
 
-        const vault = JSON.parse(
-          localStorage.getItem(LOCK_VAULT) || "null"
-        );
-
         const restored = await decryptHistory(
-          checkKey,
-          vault
+          key,
+          readVault()
         );
 
-        conversations = restored;
+        // Pulihkan riwayat sebagai data biasa.
+        localStorage.setItem(
+          STORE,
+          JSON.stringify(restored)
+        );
 
-        lockMeta = null;
-        vaultKey = null;
-
+        // Hapus data enkripsi setelah data biasa berhasil disimpan.
         localStorage.removeItem(LOCK_META);
         localStorage.removeItem(LOCK_VAULT);
         localStorage.removeItem(OLD_STORE);
 
-        localStorage.setItem(
-          STORE,
-          JSON.stringify(conversations)
+        conversations = restored;
+        lockMeta = null;
+        vaultKey = null;
+
+        activeId = conversations[0]?.id || null;
+        draftChat = null;
+
+        setHistoryLocked(false);
+        updateLockStatus();
+
+        renderHistory();
+        renderMessages();
+
+        alert(
+          "Kunci berhasil dinonaktifkan. Riwayat chat tetap tersimpan."
         );
 
-        updateLockStatus();
-        setHistoryLocked(false);
+      } catch (error) {
+        console.error("Gagal menonaktifkan kunci:", error);
 
-        alert("Kunci riwayat berhasil dihapus.");
-
-      } catch {
         alert(
-          "PIN salah atau data riwayat tidak bisa dibuka."
+          "PIN salah atau data riwayat tidak dapat dibuka. Riwayat tetap aman dan kunci tidak dinonaktifkan."
         );
       }
     }
   );
 
+  // =====================================================
+  // BUKA RIWAYAT DENGAN PIN
+  // =====================================================
+
   lockForm?.addEventListener("submit", async event => {
     event.preventDefault();
 
-    try {
-      const vault = JSON.parse(
-        localStorage.getItem(LOCK_VAULT) || "null"
-      );
+    if (!lockMeta) {
+      lockScreen.hidden = true;
+      setHistoryLocked(false);
+      return;
+    }
 
-      if (!lockMeta || !vault) {
-        throw new Error("Data kunci tidak ditemukan.");
-      }
+    const pin = unlockPin.value;
+
+    if (!/^\d{4,}$/.test(pin)) {
+      $("#unlockError").textContent =
+        "Masukkan PIN minimal 4 angka.";
+
+      return;
+    }
+
+    try {
+      const vault = readVault();
 
       const key = await deriveVaultKey(
-        unlockPin.value,
+        pin,
         lockMeta.salt
       );
 
-      conversations = await decryptHistory(
+      const restored = await decryptHistory(
         key,
         vault
       );
 
+      conversations = restored;
       vaultKey = key;
+
       activeId = conversations[0]?.id || null;
+      draftChat = null;
 
       lockScreen.hidden = true;
+
+      $("#unlockError").textContent = "";
+      unlockPin.value = "";
+
       setHistoryLocked(false);
+      updateLockStatus();
 
       renderHistory();
       renderMessages();
-      updateLockStatus();
 
-      unlockPin.value = "";
+    } catch (error) {
+      console.error("PIN tidak cocok:", error);
 
-    } catch {
       $("#unlockError").textContent =
         "PIN salah. Coba lagi.";
 
       unlockPin.value = "";
+      unlockPin.focus();
     }
   });
 
+  // =====================================================
+  // STATUS AWAL
+  // =====================================================
+
   if (lockMeta) {
+    vaultKey = null;
+
     lockScreen.hidden = true;
+
     setHistoryLocked(true);
     updateLockStatus();
+
+    // Jangan tampilkan isi chat sebelum PIN benar.
+    conversations = [];
+    activeId = null;
+
   } else {
+    vaultKey = null;
+
     lockScreen.hidden = true;
+
     setHistoryLocked(false);
     updateLockStatus();
-  }
 
-  if (conversations.length) {
-    activeId = conversations[0].id;
-  } else {
-    activeId = null;
-    draftChat = null;
+    activeId = conversations[0]?.id || null;
   }
 
   renderHistory();
   renderMessages();
+
 })();
