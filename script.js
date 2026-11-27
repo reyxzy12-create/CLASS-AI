@@ -1,3 +1,4 @@
+
 (() => {
   const $ = (selector) => document.querySelector(selector);
   const sidebar = $("#sidebar");
@@ -40,11 +41,58 @@
     }
   }
 
+  // MEMBUAT NAMA RIWAYAT CHAT OTOMATIS
   function makeTitle(text) {
-    return String(text || "Percakapan baru")
+    const prompt = String(text || "")
       .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 34) || "Percakapan baru";
+      .trim();
+
+    const lower = prompt.toLowerCase();
+
+    if (/^(hai+|halo+|hello+|hi+|hey+|assalamualaikum)[!. ]*$/i.test(prompt)) {
+      return "Sapaan hangat";
+    }
+
+    const languages = [
+      ["html", "HTML"],
+      ["css", "CSS"],
+      ["javascript|\\bjs\\b", "JavaScript"],
+      ["python", "Python"],
+      ["java", "Java"],
+      ["php", "PHP"]
+    ];
+
+    for (const [pattern, name] of languages) {
+      if (new RegExp(pattern, "i").test(lower)) {
+        if (/buatkan|bikin|buat|tuliskan|tulis|generate|contoh kode/.test(lower)) {
+          const detail = lower.includes("sederhana") ? " sederhana" : "";
+          return "Pembuatan " + name + detail;
+        }
+
+        if (/jelaskan|pengertian|apa itu|belajar/.test(lower)) {
+          return "Belajar " + name;
+        }
+
+        return name + " dan pemrograman";
+      }
+    }
+
+    if (/buatkan|bikin|buat|rancang/.test(lower)) {
+      return "Pembuatan " + prompt
+        .replace(/^(tolong\s+)?(buatkan|bikin|buat|rancang)\s+/i, "")
+        .replace(/\b(dong|ya|tolong|please)\b/gi, "")
+        .trim()
+        .slice(0, 24);
+    }
+
+    if (/jelaskan|terangkan|apa itu|pengertian/.test(lower)) {
+      return "Penjelasan " + prompt
+        .replace(/^(tolong\s+)?(jelaskan|terangkan|apa itu|pengertian)\s*/i, "")
+        .trim()
+        .slice(0, 24);
+    }
+
+    return prompt.slice(0, 30) || "Percakapan baru";
   }
 
   function currentChat() {
@@ -735,7 +783,4 @@
 
   renderHistory();
   renderMessages();
-
-  // Fake ML tetap aktif jika modulnya tersedia.
-  window.FakeML?.init();
 })();
