@@ -500,15 +500,15 @@ button { cursor: pointer; }
   color: #65677c;
 }
 
-/* CODE BLOCK */
+/* CODE BLOCK - LIGHT THEME */
 
 .code-block {
   overflow: hidden;
   margin: 12px 0;
-  border: 1px solid #303246;
-  border-radius: 11px;
-  background: #171923;
-  color: #f3f3f7;
+  border: 1px solid #e5e5e5;
+  border-radius: 13px;
+  background: #f3f3f3;
+  color: #292929;
   max-width: 100%;
   min-width: 0;
 }
@@ -518,17 +518,17 @@ button { cursor: pointer; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 12px;
-  background: #242637;
-  border-bottom: 1px solid #ffffff18;
-  color: #c5c6d3;
-  font-size: 10px;
+  padding: 10px 13px;
+  background: #f3f3f3;
+  border-bottom: 1px solid #dedede;
+  color: #555;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .code-language {
-  color: #b8b9c8;
-  font-size: 10px;
+  color: #555;
+  font-size: 11px;
   letter-spacing: .08em;
 }
 
@@ -547,56 +547,52 @@ button { cursor: pointer; }
   justify-content: center;
   gap: 6px;
   min-width: 34px;
-  min-height: 32px;
-  padding: 6px 9px;
+  min-height: 34px;
+  padding: 6px 10px;
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #a5a5b2;
-  font-size: 11px;
+  color: #777;
+  font-size: 12px;
   cursor: pointer;
 }
 
 .code-tab:hover,
 .preview-tab:hover {
-  background: #ffffff12;
-  color: #fff;
+  background: #e5e5e5;
+  color: #222;
 }
 
 .code-tab.active,
 .preview-tab.active {
-  background: #ffffff18;
-  color: #fff;
+  background: #dedede;
+  color: #222;
 }
 
 .tab-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   font-family: monospace;
   font-weight: bold;
-  font-size: 14px;
+  font-size: 15px;
 }
 
-.play-icon { font-size: 12px; }
+.play-icon { font-size: 13px; }
 
 .code-copy-row {
   display: flex;
   justify-content: flex-end;
-  padding: 8px 12px 0;
+  padding: 9px 12px 0;
 }
 
 .copy-code {
-  border: 1px solid #55576b;
-  background: #34364a;
-  color: white;
-  border-radius: 6px;
-  padding: 5px 9px;
-  font-size: 10px;
-  cursor: pointer;
+  border: 1px solid #dedede;
+  background: #e9e9e9;
+  color: #444;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 11px;
 }
 
-.copy-code:hover { background: #45475e; }
+.copy-code:hover { background: #ddd; }
 
 .code-view {
   min-width: 0;
@@ -607,22 +603,22 @@ button { cursor: pointer; }
   display: block;
   max-width: 100%;
   margin: 0;
-  padding: 12px;
+  padding: 14px;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: pre;
-  background: #171923;
-  color: #f3f3f7;
+  background: #f3f3f3;
+  color: #292929;
   border-radius: 0;
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.75;
   -webkit-overflow-scrolling: touch;
 }
 
 .code-block pre code {
   padding: 0;
-  color: #f3f3f7;
   background: transparent;
+  color: inherit;
   white-space: pre;
 }
 
@@ -640,6 +636,71 @@ button { cursor: pointer; }
   border: 0;
   border-radius: 6px;
   background: #fff;
+}
+
+/* SYNTAX HIGHLIGHTING */
+
+/* JavaScript */
+.code-block .token.keyword,
+.code-block .hljs-keyword {
+  color: #b05acb;
+}
+
+.code-block .token.string,
+.code-block .hljs-string {
+  color: #16834a;
+}
+
+.code-block .token.number,
+.code-block .hljs-number {
+  color: #d18b20;
+}
+
+.code-block .token.function,
+.code-block .hljs-title.function_ {
+  color: #2878c7;
+}
+
+.code-block .token.comment,
+.code-block .hljs-comment {
+  color: #999;
+  font-style: italic;
+}
+
+.code-block .token.operator,
+.code-block .hljs-operator {
+  color: #555;
+}
+
+/* HTML */
+.code-block .token.tag,
+.code-block .hljs-name {
+  color: #d04b4b;
+}
+
+.code-block .token.attr-name,
+.code-block .hljs-attr {
+  color: #b07820;
+}
+
+.code-block .token.attr-value,
+.code-block .hljs-string {
+  color: #16834a;
+}
+
+/* CSS */
+.code-block .token.selector,
+.code-block .hljs-selector-tag {
+  color: #b05acb;
+}
+
+.code-block .token.property,
+.code-block .hljs-attribute {
+  color: #2878c7;
+}
+
+.code-block .token.punctuation {
+  color: #777;
 }
 
 .code-preview-view[hidden],
