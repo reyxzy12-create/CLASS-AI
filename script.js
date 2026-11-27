@@ -3,6 +3,55 @@
   const sidebar = $("#sidebar");
   const scrim = $("#scrim");
 
+  // Tombol Settings menggantikan indikator READY tanpa mengubah desain utama.
+  const topPill = document.querySelector(".top-pill");
+  if (topPill) {
+    const settingsButton = document.createElement("button");
+    settingsButton.type = "button";
+    settingsButton.className = "top-pill top-settings-button";
+    settingsButton.setAttribute("aria-label", "Buka Settings");
+    settingsButton.innerHTML = '<span aria-hidden="true">⚙</span> SETTINGS';
+    settingsButton.addEventListener("click", () => showPage("settings"));
+    topPill.replaceWith(settingsButton);
+  }
+
+  // Tombol Buka dan efek blur untuk riwayat yang terkunci.
+  const historyElement = $("#chatHistory");
+  let openHistoryButton = null;
+
+  if (historyElement) {
+    openHistoryButton = document.createElement("button");
+    openHistoryButton.type = "button";
+    openHistoryButton.id = "openLockedHistory";
+    openHistoryButton.className = "settings-action";
+    openHistoryButton.textContent = "Buka";
+    openHistoryButton.hidden = true;
+    openHistoryButton.style.margin = "10px 0";
+
+    openHistoryButton.addEventListener("click", () => {
+      const screen = $("#historyLockScreen");
+      if (screen) {
+        screen.hidden = false;
+        $("#unlockPin")?.focus();
+      }
+    });
+
+    historyElement.insertAdjacentElement("afterend", openHistoryButton);
+  }
+
+  function setHistoryLocked(locked) {
+    if (historyElement) {
+      historyElement.style.filter = locked ? "blur(5px)" : "none";
+      historyElement.style.pointerEvents = locked ? "none" : "auto";
+      historyElement.style.userSelect = locked ? "none" : "auto";
+      historyElement.setAttribute("aria-hidden", locked ? "true" : "false");
+    }
+
+    if (openHistoryButton) {
+      openHistoryButton.hidden = !locked;
+    }
+  }
+
   const STORE = "forClassIX_conversations_v2";
   const OLD_STORE = "forClassIX_chat_v1";
 
@@ -194,401 +243,25 @@
           JSON.stringify(conversations)
         );
       }
-    } catch {
-      alert(
-        "Penyimpanan browser penuh atau enkripsi tidak tersedia."
-      );
+    } catch (error) {
+      console.error("Gagal menyimpan riwayat:", error);
     }
   }
 
   function makeTitle(text) {
-    const prompt = String(text || "")
+    const clean = String(text || "")
       .replace(/\s+/g, " ")
       .trim();
 
-    const lower = prompt.toLowerCase();
-
-    if (!prompt) return "Percakapan baru";
-
-    if (/^(hai+|halo+|hello+|hi+|hey+|assalamualaikum|selamat pagi|selamat siang|selamat malam)[!. ]*$/i.test(prompt)) {
-      return "Sapaan Hangat";
-    }
-
-    const codingTopics = [
-      { pattern: /\bhtml\b/i, name: "HTML" },
-      { pattern: /\bcss\b/i, name: "CSS" },
-      { pattern: /javascript|\bjs\b/i, name: "JavaScript" },
-      { pattern: /\bpython\b/i, name: "Python" },
-      { pattern: /\bphp\b/i, name: "PHP" },
-      { pattern: /\bjava\b/i, name: "Java" },
-      { pattern: /\b(react|reactjs)\b/i, name: "React" },
-      { pattern: /\b(node\.js|nodejs)\b/i, name: "Node.js" }
-    ];
-
-    const isCreate =
-      /buatkan|bikinkan|bikin|buat|rancang|generate|tulis(kan)?|coding|kode/.test(lower);
-
-    const isExplain =
-      /jelaskan|terangkan|pengertian|apa itu|bagaimana cara|cara kerja|belajar/.test(lower);
-
-    for (const topic of codingTopics) {
-      if (topic.pattern.test(prompt)) {
-        if (isCreate) {
-          const simple =
-            /sederhana|simple|basic|dasar/.test(lower)
-              ? " Sederhana"
-              : "";
-
-          return `Pembuatan ${topic.name}${simple}`;
-        }
-
-        if (isExplain) {
-          return `Belajar ${topic.name}`;
-        }
-
-        return `${topic.name} dan Pemrograman`;
-      }
-    }
-
-    const topicRules = [
-      [/\b(matematika|aljabar|geometri|persamaan|pecahan|kalkulus)\b/i, "Belajar Matematika"],
-      [/\b(ipa|fisika|kimia|biologi|sains)\b/i, "Belajar Sains"],
-      [/\b(sejarah|kemerdekaan|kerajaan|pahlawan)\b/i, "Pembahasan Sejarah"],
-      [/\b(inggris|english|grammar|vocabulary)\b/i, "Belajar Bahasa Inggris"],
-      [/\b(terjemah|translate|translation)\b/i, "Terjemahan Teks"],
-      [/\b(ringkas|rangkuman|resume|summar(y|ize))\b/i, "Rangkuman Materi"],
-      [/\b(karangan|cerpen|cerita|puisi|novel)\b/i, "Penulisan Kreatif"],
-      [/\b(desain|logo|poster|banner|ilustrasi)\b/i, "Ide Desain Kreatif"],
-      [/\b(ide|inspirasi|gagasan)\b/i, "Ide Kreatif"],
-      [/\b(tugas|sekolah|pelajaran|materi|ujian)\b/i, "Bantuan Belajar Sekolah"],
-      [/\b(ai|artificial intelligence|kecerdasan buatan)\b/i, "Pembahasan AI"],
-      [/\b(website|web|landing page|situs)\b/i, "Pembuatan Website"],
-      [/\b(foto|gambar|image)\b/i, "Pengolahan Gambar"],
-      [/\b(game|permainan|gaming)\b/i, "Pembahasan Game"]
-    ];
-
-    for (const [pattern, title] of topicRules) {
-      if (pattern.test(prompt)) return title;
-    }
-
-    let subject = prompt
-      .replace(/^(tolong\s+)?(bisa\s+)?(buatkan|bikinkan|bikin|buat|jelaskan|terangkan|carikan|cari|berikan|beri|tolong|minta|apa itu)\s*/i, "")
-      .replace(/\b(dong|ya|tolong|please|untuk saya|buat saya)\b/gi, " ")
-      .replace(/[?!.,]+$/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (!subject) subject = prompt;
-
-    const words = subject
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 5);
-
-    const clean = words.join(" ");
-
-    return clean.length > 1
-      ? clean.charAt(0).toLocaleUpperCase("id-ID") + clean.slice(1)
-      : "Percakapan Baru";
-  }
-
-  function currentChat() {
-    return conversations.find(
-      chat => chat.id === activeId
-    ) || (
-      draftChat && draftChat.id === activeId
-        ? draftChat
-        : null
-    );
-  }
-
-  function createChat() {
-    draftChat = {
-      id: String(Date.now()) +
-        Math.random().toString(16).slice(2),
-      title: "Percakapan baru",
-      messages: [],
-      updatedAt: Date.now()
-    };
-
-    activeId = draftChat.id;
-
-    renderHistory();
-    renderMessages();
-
-    return draftChat;
-  }
-
-  function activateDraft(chat) {
-    if (!chat || chat !== draftChat) return;
-
-    conversations.unshift(chat);
-    draftChat = null;
-  }
-
-  function renderHistory() {
-    const history = $("#chatHistory");
-    if (!history) return;
-
-    history.innerHTML = "";
-
-    conversations
-      .slice()
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .forEach(chat => {
-        const row = document.createElement("div");
-        row.className = "history-row";
-
-        const item = document.createElement("button");
-        item.type = "button";
-        item.className = "history-item" +
-          (chat.id === activeId ? " selected" : "");
-
-        item.textContent = chat.title || "Percakapan baru";
-        item.title = item.textContent;
-
-        item.addEventListener("click", () => {
-          if (busy) return;
-
-          activeId = chat.id;
-          renderHistory();
-          renderMessages();
-          showPage("chat");
-        });
-
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.className = "delete-history";
-        remove.textContent = "×";
-        remove.title = "Hapus riwayat";
-
-        remove.setAttribute(
-          "aria-label",
-          "Hapus riwayat " + item.textContent
-        );
-
-        remove.addEventListener("click", event => {
-          event.stopPropagation();
-
-          if (busy) {
-            alert(
-              "Tunggu sampai jawaban selesai sebelum menghapus riwayat."
-            );
-            return;
-          }
-
-          const deletingActive = chat.id === activeId;
-
-          conversations = conversations.filter(
-            entry => entry.id !== chat.id
-          );
-
-          if (deletingActive) {
-            activeId = conversations.length
-              ? conversations[0].id
-              : null;
-
-            draftChat = null;
-          }
-
-          save();
-          renderHistory();
-          renderMessages();
-        });
-
-        row.append(item, remove);
-        history.appendChild(row);
-      });
-  }
-
-  function showPage(name) {
-    document.querySelectorAll(".page").forEach(page => {
-      page.classList.toggle(
-        "active-page",
-        page.id === "page-" + name
-      );
-    });
-
-    document.querySelectorAll(".nav-item[data-page]").forEach(button => {
-      button.classList.toggle(
-        "active",
-        button.dataset.page === name
-      );
-    });
-
-    sidebar?.classList.remove("open");
-    scrim?.classList.remove("show");
-  }
-
-  document.querySelectorAll("[data-page]").forEach(button => {
-    button.addEventListener("click", () => {
-      showPage(button.dataset.page);
-    });
-  });
-
-  $("#menuButton").addEventListener("click", () => {
-    sidebar.classList.add("open");
-    scrim.classList.add("show");
-  });
-
-  $("#closeSidebar").addEventListener("click", () => {
-    sidebar.classList.remove("open");
-    scrim.classList.remove("show");
-  });
-
-  scrim.addEventListener("click", () => {
-    sidebar.classList.remove("open");
-    scrim.classList.remove("show");
-  });
-
-  $("#newChat").addEventListener("click", () => {
-    if (busy) return;
-
-    createChat();
-    showPage("chat");
-    $("#chatInput").focus();
-  });
-
-  const messagesEl = $("#messages");
-  const welcome = $("#welcome");
-  const input = $("#chatInput");
-  const sendButton = $("#sendButton");
-
-  const imageInput = $("#imageInput");
-  const imagePreview = $("#imagePreview");
-
-  async function fileToDataURL(file) {
-    if (file.size > 12 * 1024 * 1024) {
-      throw new Error(
-        "Pilih foto berukuran maksimal 12 MB."
-      );
-    }
-
-    const image = await new Promise((resolve, reject) => {
-      const url = URL.createObjectURL(file);
-      const img = new Image();
-
-      img.onload = () => {
-        URL.revokeObjectURL(url);
-        resolve(img);
-      };
-
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error("Foto tidak bisa dibaca."));
-      };
-    });
-
-    const canvas = document.createElement("canvas");
-    const maxSide = 1280;
-    const scale = Math.min(
-      1,
-      maxSide / Math.max(image.width, image.height)
-    );
-
-    canvas.width = Math.round(image.width * scale);
-    canvas.height = Math.round(image.height * scale);
-
-    const context = canvas.getContext("2d");
-    context.drawImage(
-      image,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-
-    return canvas.toDataURL("image/jpeg", 0.82);
-  }
-      img.src = url;
-    });
-
-    const max = 1280;
-
-    const scale = Math.min(
-      1,
-      max / Math.max(image.width, image.height)
-    );
-
-    const canvas = document.createElement("canvas");
-
-    canvas.width = Math.round(image.width * scale);
-    canvas.height = Math.round(image.height * scale);
-
-    canvas.getContext("2d").drawImage(
-      image,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-
-    return canvas.toDataURL("image/jpeg", 0.82);
-  }
-
-  imageInput.addEventListener("change", async () => {
-    const file = imageInput.files &&
-      imageInput.files[0];
-
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      alert("Pilih file gambar.");
-      imageInput.value = "";
-      return;
-    }
-
-    try {
-      selectedImageData = await fileToDataURL(file);
-
-      imagePreview.innerHTML = "";
-
-      const previewImage = document.createElement("img");
-      previewImage.src = selectedImageData;
-      previewImage.alt = "Foto yang akan dikirim";
-
-      const fileInfo = document.createElement("span");
-      fileInfo.className = "image-file-name";
-      fileInfo.textContent = file.name;
-
-      const removeImage = document.createElement("button");
-      removeImage.type = "button";
-      removeImage.className = "remove-image";
-      removeImage.textContent = "×";
-
-      removeImage.setAttribute(
-        "aria-label",
-        "Batalkan foto"
-      );
-
-      removeImage.addEventListener(
-        "click",
-        clearSelectedImage
-      );
-
-      imagePreview.append(
-        previewImage,
-        fileInfo,
-        removeImage
-      );
-
-      imagePreview.hidden = false;
-
-    } catch (error) {
-      alert(error.message || "Foto gagal diproses.");
-      clearSelectedImage();
-    }
-  });
-
-  function clearSelectedImage() {
-    imageInput.value = "";
-    selectedImageData = null;
-    imagePreview.innerHTML = "";
-    imagePreview.hidden = true;
+    if (!clean) return "New chat";
+
+    return clean.length > 32
+      ? clean.slice(0, 32) + "..."
+      : clean;
   }
 
   function escapeHTML(value) {
-    return String(value).replace(/[&<>"']/g, char => ({
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
       "&": "&amp;",
       "<": "&lt;",
       ">": "&gt;",
@@ -597,589 +270,414 @@
     })[char]);
   }
 
-  function inlineFormat(value) {
-    let text = escapeHTML(value);
+  function formatDate(timestamp) {
+    const date = new Date(timestamp || Date.now());
 
-    text = text.replace(
-      /&lt;br\s*\/?&gt;/gi,
-      "<br>"
-    );
-
-    text = text.replace(
-      /`([^`]+)`/g,
-      "<code>$1</code>"
-    );
-
-    text = text.replace(
-      /\*\*(.+?)\*\*/g,
-      "<strong>$1</strong>"
-    );
-
-    text = text.replace(
-      /\*(.+?)\*/g,
-      "<em>$1</em>"
-    );
-
-    text = text.replace(
-      /~~(.+?)~~/g,
-      "<del>$1</del>"
-    );
-
-    return text;
+    return date.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short"
+    });
   }
 
-  function renderMarkdown(source) {
-    const lines = String(source || "")
-      .replace(/\r/g, "")
-      .split("\n");
+  function renderHistory() {
+    const history = $("#chatHistory");
+    if (!history) return;
 
-    let html = "";
-    let inCode = false;
-    let code = [];
-    let inList = false;
-    let listType = "";
-    let inTable = false;
+    history.innerHTML = "";
 
-    function closeList() {
-      if (inList) {
-        html += listType === "ol"
-          ? "</ol>"
-          : "</ul>";
+    const sorted = [...conversations].sort(
+      (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)
+    );
 
-        inList = false;
-        listType = "";
-      }
-    }
+    sorted.forEach(chat => {
+      const item = document.createElement("div");
+      item.className = "history-item";
 
-    function closeTable() {
-      if (inTable) {
-        html += "</tbody></table></div>";
-        inTable = false;
-      }
-    }
-
-    function makeCodeBlock(codeText) {
-      const safeSource = JSON.stringify(codeText)
-        .replace(/</g, "\\u003c");
-
-      return `
-        <div class="code-block">
-          <div class="code-toolbar">
-            <span class="code-language">CODE</span>
-
-            <div class="code-tabs" role="group" aria-label="Tampilan kode">
-              <button
-                type="button"
-                class="code-tab active"
-                aria-label="Lihat kode"
-                aria-pressed="true"
-              >
-                <span class="tab-icon" aria-hidden="true">&gt;_</span>
-              </button>
-
-              <button
-                type="button"
-                class="preview-tab"
-                aria-label="Lihat preview"
-                aria-pressed="false"
-              >
-                <span class="tab-icon play-icon" aria-hidden="true">▶</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="code-view">
-            <div class="code-copy-row">
-              <button type="button" class="copy-code">▢ Salin</button>
-            </div>
-
-            <pre><code>${escapeHTML(codeText)}</code></pre>
-          </div>
-
-          <div class="code-preview-view" hidden>
-            <iframe
-              title="Preview kode"
-              sandbox="allow-scripts"
-            ></iframe>
-          </div>
-
-          <script type="application/json" class="preview-source">${safeSource}</script>
-        </div>
-      `;
-    }
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-
-      if (line.trim().startsWith("```")) {
-        closeList();
-        closeTable();
-
-        if (!inCode) {
-          inCode = true;
-          code = [];
-        } else {
-          html += makeCodeBlock(code.join("\n"));
-          inCode = false;
-        }
-
-        continue;
+      if (chat.id === activeId) {
+        item.classList.add("active");
       }
 
-      if (inCode) {
-        code.push(line);
-        continue;
-      }
+      const title = document.createElement("button");
+      title.type = "button";
+      title.className = "history-title";
+      title.textContent = chat.title || "New chat";
 
-      if (
-        line.includes("|") &&
-        i + 1 < lines.length &&
-        /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])
-      ) {
-        closeList();
-        closeTable();
-
-        const cells = line
-          .split("|")
-          .map(s => s.trim())
-          .filter(Boolean);
-
-        i++;
-
-        html += `
-          <div class="table-wrap">
-            <table class="ai-table">
-              <thead>
-                <tr>
-        `;
-
-        cells.forEach(cell => {
-          html += `<th>${inlineFormat(cell)}</th>`;
-        });
-
-        html += `
-                </tr>
-              </thead>
-              <tbody>
-        `;
-
-        inTable = true;
-        continue;
-      }
-
-      if (inTable && line.includes("|")) {
-        const cells = line
-          .split("|")
-          .map(s => s.trim())
-          .filter(Boolean);
-
-        html += "<tr>";
-
-        cells.forEach(cell => {
-          html += `<td>${inlineFormat(cell)}</td>`;
-        });
-
-        html += "</tr>";
-        continue;
-      } else {
-        closeTable();
-      }
-
-      if (!line.trim()) {
-        closeList();
-        continue;
-      }
-
-      const heading = line.match(
-        /^(#{1,4})\s+(.+)$/
-      );
-
-      if (heading) {
-        closeList();
-
-        const level = heading[1].length;
-
-        html += `<h${level}>${inlineFormat(heading[2])}</h${level}>`;
-        continue;
-      }
-
-      if (/^\s*[-*]\s+/.test(line)) {
-        if (!inList || listType !== "ul") {
-          closeList();
-          html += "<ul>";
-          inList = true;
-          listType = "ul";
-        }
-
-        html += `<li>${inlineFormat(
-          line.replace(/^\s*[-*]\s+/, "")
-        )}</li>`;
-
-        continue;
-      }
-
-      if (/^\s*\d+[.)]\s+/.test(line)) {
-        if (!inList || listType !== "ol") {
-          closeList();
-          html += "<ol>";
-          inList = true;
-          listType = "ol";
-        }
-
-        html += `<li>${inlineFormat(
-          line.replace(/^\s*\d+[.)]\s+/, "")
-        )}</li>`;
-
-        continue;
-      }
-
-      closeList();
-
-      if (/^>\s?/.test(line)) {
-        html += `<blockquote>${inlineFormat(
-          line.replace(/^>\s?/, "")
-        )}</blockquote>`;
-
-        continue;
-      }
-
-      html += `<p>${inlineFormat(line)}</p>`;
-    }
-
-    if (inCode) {
-      html += makeCodeBlock(code.join("\n"));
-    }
-
-    closeList();
-    closeTable();
-
-    return html;
-  }
-
-  function addCopyButtons(container) {
-    container.querySelectorAll(".code-block").forEach(block => {
-      const code = block.querySelector(
-        "pre code"
-      )?.textContent || "";
-
-      const codeView = block.querySelector(".code-view");
-      const previewView = block.querySelector(
-        ".code-preview-view"
-      );
-
-      const frame = block.querySelector("iframe");
-      const source = block.querySelector(".preview-source");
-
-      const codeTab = block.querySelector(".code-tab");
-      const previewTab = block.querySelector(".preview-tab");
-
-      if (source && frame) {
-        try {
-          const htmlSource = JSON.parse(
-            source.textContent || '""'
-          );
-
-          frame.srcdoc = htmlSource;
-
-        } catch {
-          frame.srcdoc = `
-            <!doctype html>
-            <html>
-              <body>Preview tidak tersedia.</body>
-            </html>
-          `;
-        }
-      }
-
-      codeTab?.addEventListener("click", () => {
-        codeView.hidden = false;
-        previewView.hidden = true;
-
-        codeTab.classList.add("active");
-        previewTab.classList.remove("active");
-
-        codeTab.setAttribute("aria-pressed", "true");
-        previewTab.setAttribute("aria-pressed", "false");
+      title.addEventListener("click", () => {
+        activeId = chat.id;
+        draftChat = null;
+        renderHistory();
+        renderMessages();
+        closeSidebar();
       });
 
-      previewTab?.addEventListener("click", () => {
-        codeView.hidden = true;
-        previewView.hidden = false;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "history-delete";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", "Hapus riwayat");
 
-        codeTab.classList.remove("active");
-        previewTab.classList.add("active");
+      remove.addEventListener("click", async event => {
+        event.stopPropagation();
 
-        codeTab.setAttribute("aria-pressed", "false");
-        previewTab.setAttribute("aria-pressed", "true");
+        if (!confirm("Hapus percakapan ini?")) return;
+
+        conversations = conversations.filter(
+          item => item.id !== chat.id
+        );
+
+        if (activeId === chat.id) {
+          activeId = conversations[0]?.id || null;
+        }
+
+        await save();
+        renderHistory();
+        renderMessages();
       });
 
-      block.querySelector(".copy-code")?.addEventListener(
-        "click",
-        async event => {
-          const button = event.currentTarget;
-
-          try {
-            if (navigator.clipboard?.writeText) {
-              await navigator.clipboard.writeText(code);
-            } else {
-              const temporary = document.createElement("textarea");
-              temporary.value = code;
-
-              document.body.appendChild(temporary);
-              temporary.select();
-              document.execCommand("copy");
-              temporary.remove();
-            }
-
-            button.textContent = "✓ Tersalin";
-
-          } catch {
-            button.textContent = "Gagal menyalin";
-          }
-
-          setTimeout(() => {
-            button.textContent = "▢ Salin";
-          }, 1600);
-        }
-      );
+      item.append(title, remove);
+      history.appendChild(item);
     });
   }
 
   function renderMessages() {
-    const chat = currentChat();
-    const messages = chat?.messages || [];
+    const messages = $("#messages");
+    const welcome = $("#welcome");
 
-    messagesEl.innerHTML = "";
-    welcome.style.display = messages.length
-      ? "none"
-      : "block";
+    if (!messages) return;
 
-    messages.forEach(message => {
-      const row = document.createElement("div");
+    const chat = conversations.find(
+      item => item.id === activeId
+    );
 
-      row.className = "message " +
-        (message.role === "user"
-          ? "user"
-          : "assistant");
+    const list = chat?.messages || draftChat?.messages || [];
 
-      if (message.role !== "user") {
-        const avatar = document.createElement("div");
-        avatar.className = "message-avatar";
-        avatar.textContent = "✧";
+    messages.innerHTML = "";
 
-        row.appendChild(avatar);
+    if (welcome) {
+      welcome.hidden = list.length > 0;
+    }
+
+    list.forEach(message => {
+      const wrapper = document.createElement("div");
+      wrapper.className = `message ${message.role === "user" ? "user-message" : "ai-message"}`;
+
+      const content = document.createElement("div");
+      content.className = "message-content";
+
+      if (message.image) {
+        const image = document.createElement("img");
+        image.src = message.image;
+        image.alt = "Gambar yang dikirim";
+        image.className = "message-image";
+        content.appendChild(image);
       }
 
-      const bubble = document.createElement("div");
-      bubble.className = "message-bubble";
+      const text = document.createElement("div");
+      text.className = "message-text";
 
-      if (message.role === "user") {
-        bubble.textContent = message.content;
-
-        if (message.image) {
-          const sentImage = document.createElement("img");
-          sentImage.src = message.image;
-          sentImage.alt = "Foto yang dikirim";
-          sentImage.className = "sent-chat-image";
-
-          bubble.appendChild(sentImage);
-        }
-
-      } else {
-        bubble.innerHTML = renderMarkdown(
-          message.content
+      if (message.role === "assistant" && window.marked && window.DOMPurify) {
+        text.innerHTML = DOMPurify.sanitize(
+          marked.parse(String(message.content || ""))
         );
-
-        addCopyButtons(bubble);
+      } else {
+        text.textContent = message.content || "";
       }
 
-      row.appendChild(bubble);
-      messagesEl.appendChild(row);
+      content.appendChild(text);
+      wrapper.appendChild(content);
+      messages.appendChild(wrapper);
     });
 
-    $("#chatContent").scrollTop =
-      $("#chatContent").scrollHeight;
+    messages.scrollTop = messages.scrollHeight;
   }
+
+  function showPage(name) {
+    document.querySelectorAll(".page").forEach(page => {
+      page.classList.remove("active-page");
+    });
+
+    const target = $(`#page-${name}`);
+    if (target) {
+      target.classList.add("active-page");
+    }
+
+    document.querySelectorAll("[data-page]").forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.page === name
+      );
+    });
+
+    closeSidebar();
+  }
+
+  function openSidebar() {
+    sidebar?.classList.add("open");
+    scrim?.classList.add("show");
+  }
+
+  function closeSidebar() {
+    sidebar?.classList.remove("open");
+    scrim?.classList.remove("show");
+  }
+
+  $("#menuButton")?.addEventListener("click", openSidebar);
+  $("#closeSidebar")?.addEventListener("click", closeSidebar);
+  scrim?.addEventListener("click", closeSidebar);
+
+  document.querySelectorAll("[data-page]").forEach(button => {
+    button.addEventListener("click", () => {
+      showPage(button.dataset.page);
+    });
+  });
+
+  $("#newChat")?.addEventListener("click", () => {
+    activeId = null;
+    draftChat = {
+      id: String(Date.now()),
+      title: "New chat",
+      messages: [],
+      updatedAt: Date.now()
+    };
+
+    renderHistory();
+    renderMessages();
+    closeSidebar();
+    $("#chatInput")?.focus();
+  });
 
   document.querySelectorAll(".suggestion").forEach(button => {
     button.addEventListener("click", () => {
-      input.value = button.dataset.prompt || "";
-      input.focus();
+      const prompt = button.dataset.prompt || "";
+      const input = $("#chatInput");
+
+      if (input) {
+        input.value = prompt;
+        input.focus();
+      }
+
+      $("#chatForm")?.requestSubmit();
     });
   });
 
-  input.addEventListener("input", () => {
-    input.style.height = "auto";
+  const imageInput = $("#imageInput");
+  const imagePreview = $("#imagePreview");
 
-    input.style.height =
-      Math.min(input.scrollHeight, 150) + "px";
+  imageInput?.addEventListener("change", () => {
+    const file = imageInput.files?.[0];
+
+    if (!file) {
+      selectedImageData = null;
+      if (imagePreview) {
+        imagePreview.innerHTML = "";
+        imagePreview.hidden = true;
+      }
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      alert("Pilih file gambar.");
+      imageInput.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      selectedImageData = reader.result;
+
+      if (imagePreview) {
+        imagePreview.innerHTML = `
+          <img src="${selectedImageData}" alt="Preview gambar">
+          <button type="button" id="removeImage" aria-label="Hapus gambar">×</button>
+        `;
+
+        imagePreview.hidden = false;
+
+        $("#removeImage")?.addEventListener("click", () => {
+          selectedImageData = null;
+          imageInput.value = "";
+          imagePreview.innerHTML = "";
+          imagePreview.hidden = true;
+        });
+      }
+    };
+
+    reader.readAsDataURL(file);
   });
 
-  $("#chatForm").addEventListener("submit", async event => {
-    event.preventDefault();
-
-    const text = input.value.trim();
-    const imageForRequest = selectedImageData;
-
-    if ((!text && !imageForRequest) || busy) return;
-
-    if (!currentChat()) {
-      createChat();
-    }
-
-    const chat = currentChat();
-    const isFirstMessage = chat.messages.length === 0;
-
-    if (isFirstMessage) {
-      activateDraft(chat);
-    }
-
-    chat.messages.push({
-      role: "user",
-      content: text || "Tolong analisis foto ini.",
-      ...(imageForRequest
-        ? { image: imageForRequest }
-        : {})
-    });
-
-    chat.title = chat.messages.length === 1
-      ? makeTitle(text)
-      : chat.title;
-
-    chat.updatedAt = Date.now();
-
-    input.value = "";
-    input.style.height = "auto";
-
-    clearSelectedImage();
+  async function sendMessage(content, imageData) {
+    if (busy || (!content.trim() && !imageData)) return;
 
     busy = true;
-    sendButton.disabled = true;
-    sendButton.textContent = "…";
 
-    chat.messages.push({
-      role: "assistant",
-      content: ""
-    });
+    const input = $("#chatInput");
+    const sendButton = $("#sendButton");
 
-    renderHistory();
-    renderMessages();
+    if (sendButton) sendButton.disabled = true;
 
-    try {
-      const reply = await window.ClassAI.reply(
-        chat.messages.slice(0, -1),
-        partial => {
-          chat.messages[
-            chat.messages.length - 1
-          ].content = partial;
+    let chat = conversations.find(
+      item => item.id === activeId
+    );
 
-          renderMessages();
-        },
-        imageForRequest,
-        {
-          style: localStorage.getItem(
-            "classAI_ai_style"
-          ) || "normal"
-        }
-      );
-
-      chat.messages[
-        chat.messages.length - 1
-      ].content = reply || "Maaf, belum ada jawaban.";
-
-    } catch (error) {
-      chat.messages[
-        chat.messages.length - 1
-      ].content =
-        "Maaf, CLASS-AI belum bisa terhubung.\n\n" +
-        (error.message || "");
+    if (!chat && draftChat) {
+      chat = draftChat;
+      conversations.unshift(chat);
+      activeId = chat.id;
+      draftChat = null;
     }
 
+    if (!chat) {
+      chat = {
+        id: String(Date.now()),
+        title: makeTitle(content),
+        messages: [],
+        updatedAt: Date.now()
+      };
+
+      conversations.unshift(chat);
+      activeId = chat.id;
+    }
+
+    const userMessage = {
+      role: "user",
+      content,
+      image: imageData || null
+    };
+
+    chat.messages.push(userMessage);
+    chat.title = makeTitle(
+      chat.messages.find(item => item.role === "user")?.content || content
+    );
     chat.updatedAt = Date.now();
 
-    await save();
+    if (input) input.value = "";
+
+    selectedImageData = null;
+    if (imageInput) imageInput.value = "";
+    if (imagePreview) {
+      imagePreview.innerHTML = "";
+      imagePreview.hidden = true;
+    }
 
     renderHistory();
     renderMessages();
+    await save();
 
-    busy = false;
-    sendButton.disabled = false;
-    sendButton.textContent = "↑";
-  });
+    const messages = $("#messages");
+    const loading = document.createElement("div");
+    loading.className = "message ai-message typing-indicator";
+    loading.textContent = "CLASS-AI sedang mengetik...";
+    messages?.appendChild(loading);
 
-  // SETTINGS
-  const setting = (key, fallback = "") =>
-    localStorage.getItem("classAI_" + key) ?? fallback;
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          messages: chat.messages.map(item => ({
+            role: item.role,
+            content: item.content,
+            image: item.image
+          })),
+          style: localStorage.getItem("classAI_style") || "normal"
+        })
+      });
 
-  const appearanceSelect = $("#appearanceSelect");
-  const aiStyleSelect = $("#aiStyle");
-  const profileName = $("#profileName");
-  const enterToSend = $("#enterToSend");
+      const data = await response.json();
 
-  function applyTheme(theme) {
-    const dark =
-      theme === "dark" ||
-      (
-        theme === "system" &&
-        matchMedia(
-          "(prefers-color-scheme: dark)"
-        ).matches
-      );
+      if (!response.ok) {
+        throw new Error(data.error || "Gagal menghubungi AI.");
+      }
 
-    document.documentElement.classList.toggle(
-      "theme-dark",
-      dark
-    );
+      loading.remove();
+
+      const answer = data.reply || data.message || data.content || "Maaf, AI tidak memberikan jawaban.";
+
+      chat.messages.push({
+        role: "assistant",
+        content: answer
+      });
+
+      chat.updatedAt = Date.now();
+      await save();
+
+      renderHistory();
+      renderMessages();
+
+    } catch (error) {
+      loading.remove();
+
+      chat.messages.push({
+        role: "assistant",
+        content: `Maaf, terjadi kesalahan: ${error.message || "Tidak dapat menghubungi server."}`
+      });
+
+      await save();
+      renderMessages();
+
+    } finally {
+      busy = false;
+      if (sendButton) sendButton.disabled = false;
+      input?.focus();
+    }
   }
 
-  if (appearanceSelect) {
-    appearanceSelect.value = setting(
-      "appearance",
-      "light"
-    );
+  $("#chatForm")?.addEventListener("submit", event => {
+    event.preventDefault();
 
-    applyTheme(appearanceSelect.value);
+    const content = $("#chatInput")?.value || "";
+    sendMessage(content, selectedImageData);
+  });
+
+  const appearanceSelect = $("#appearanceSelect");
+
+  if (appearanceSelect) {
+    appearanceSelect.value =
+      localStorage.getItem("classAI_appearance") || "light";
+
+    function applyAppearance(value) {
+      const theme = value === "system"
+        ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : value;
+
+      document.documentElement.dataset.theme = theme;
+    }
+
+    applyAppearance(appearanceSelect.value);
 
     appearanceSelect.addEventListener("change", () => {
       localStorage.setItem(
         "classAI_appearance",
         appearanceSelect.value
       );
-
-      applyTheme(appearanceSelect.value);
+      applyAppearance(appearanceSelect.value);
     });
   }
 
+  const profileName = $("#profileName");
+
   if (profileName) {
-    profileName.value = setting("profile_name", "");
+    profileName.value =
+      localStorage.getItem("classAI_profile_name") || "";
   }
 
   $("#saveProfile")?.addEventListener("click", () => {
     localStorage.setItem(
       "classAI_profile_name",
-      profileName.value.trim()
+      profileName?.value.trim() || ""
     );
 
-    alert("Nama profil disimpan di perangkat ini.");
+    alert("Nama berhasil disimpan.");
   });
 
-  if (aiStyleSelect) {
-    aiStyleSelect.value = setting(
-      "ai_style",
-      "normal"
-    );
-  }
-
-  aiStyleSelect?.addEventListener("change", () => {
-    localStorage.setItem(
-      "classAI_ai_style",
-      aiStyleSelect.value
-    );
-  });
+  const enterToSend = $("#enterToSend");
 
   if (enterToSend) {
     enterToSend.checked =
-      setting("enter_to_send", "true") === "true";
+      localStorage.getItem("classAI_enter_to_send") !== "false";
   }
 
   enterToSend?.addEventListener("change", () => {
@@ -1189,34 +687,42 @@
     );
   });
 
-  input.addEventListener("keydown", event => {
+  $("#chatInput")?.addEventListener("keydown", event => {
     if (
       event.key === "Enter" &&
       !event.shiftKey &&
       enterToSend?.checked
     ) {
       event.preventDefault();
-      $("#chatForm").requestSubmit();
+      $("#chatForm")?.requestSubmit();
     }
   });
 
-  $("#clearAllHistory")?.addEventListener(
-    "click",
-    async () => {
-      if (!confirm(
-        "Hapus semua riwayat chat? Tindakan ini tidak bisa dibatalkan."
-      )) return;
+  const aiStyle = $("#aiStyle");
 
-      conversations = [];
-      activeId = null;
-      draftChat = null;
+  if (aiStyle) {
+    aiStyle.value =
+      localStorage.getItem("classAI_style") || "normal";
 
-      await save();
+    aiStyle.addEventListener("change", () => {
+      localStorage.setItem("classAI_style", aiStyle.value);
+    });
+  }
 
-      renderHistory();
-      renderMessages();
-    }
-  );
+  $("#clearAllHistory")?.addEventListener("click", async () => {
+    if (!confirm(
+      "Hapus semua riwayat chat? Tindakan ini tidak bisa dibatalkan."
+    )) return;
+
+    conversations = [];
+    activeId = null;
+    draftChat = null;
+
+    await save();
+
+    renderHistory();
+    renderMessages();
+  });
 
   // LOCK HISTORY
   const lockScreen = $("#historyLockScreen");
@@ -1226,6 +732,23 @@
   const lockPinInput = $("#lockPin");
   const lockPinConfirm = $("#lockPinConfirm");
   const lockCurrentPin = $("#lockCurrentPin");
+
+  [
+    lockCurrentPin,
+    lockPinInput,
+    lockPinConfirm,
+    unlockPin
+  ].forEach(field => {
+    if (!field) return;
+
+    field.setAttribute("inputmode", "numeric");
+    field.setAttribute("pattern", "[0-9]*");
+    field.setAttribute("autocomplete", "off");
+  });
+
+  [lockPinInput, lockPinConfirm].forEach(field => {
+    if (field) field.minLength = 4;
+  });
 
   function updateLockStatus() {
     if (lockStatus) {
@@ -1277,113 +800,104 @@
     updateLockStatus();
   }
 
-  $("#enableLock")?.addEventListener(
-    "click",
-    async () => {
-      const pin = lockPinInput.value;
+  $("#enableLock")?.addEventListener("click", async () => {
+    const pin = lockPinInput?.value || "";
 
-      if (pin.length < 6) {
-        return alert("PIN harus minimal 6 karakter.");
-      }
+    if (!/^\d{4,}$/.test(pin)) {
+      return alert("PIN harus berupa angka dan minimal 4 digit.");
+    }
 
-      if (pin !== lockPinConfirm.value) {
-        return alert("Konfirmasi PIN tidak cocok.");
-      }
+    if (pin !== lockPinConfirm?.value) {
+      return alert("Konfirmasi PIN tidak cocok.");
+    }
 
-      try {
-        if (lockMeta) {
-          if (!lockCurrentPin.value) {
-            return alert(
-              "Masukkan PIN saat ini untuk mengubah PIN."
-            );
-          }
-
-          const currentKey = await deriveVaultKey(
-            lockCurrentPin.value,
-            lockMeta.salt
-          );
-
-          await decryptHistory(
-            currentKey,
-            JSON.parse(
-              localStorage.getItem(LOCK_VAULT) || "null"
-            )
+    try {
+      if (lockMeta) {
+        if (!lockCurrentPin?.value) {
+          return alert(
+            "Masukkan PIN saat ini untuk mengubah PIN."
           );
         }
 
-        await activateHistoryLock(pin);
-
-        lockPinInput.value = "";
-        lockPinConfirm.value = "";
-        lockCurrentPin.value = "";
-
-        alert(
-          "Kunci riwayat berhasil diaktifkan/diperbarui."
-        );
-
-      } catch (error) {
-        alert(
-          error.message || "Gagal mengaktifkan kunci."
-        );
-      }
-    }
-  );
-
-  $("#disableLock")?.addEventListener(
-    "click",
-    async () => {
-      if (!lockMeta || !vaultKey) {
-        return alert(
-          "Buka riwayat dengan PIN terlebih dahulu."
-        );
-      }
-
-      const pin = prompt(
-        "Masukkan PIN saat ini untuk menghapus kunci:"
-      );
-
-      if (pin === null) return;
-
-      try {
-        const checkKey = await deriveVaultKey(
-          pin,
+        const currentKey = await deriveVaultKey(
+          lockCurrentPin.value,
           lockMeta.salt
         );
 
-        const vault = JSON.parse(
-          localStorage.getItem(LOCK_VAULT) || "null"
-        );
-
-        const restored = await decryptHistory(
-          checkKey,
-          vault
-        );
-
-        conversations = restored;
-
-        lockMeta = null;
-        vaultKey = null;
-
-        localStorage.removeItem(LOCK_META);
-        localStorage.removeItem(LOCK_VAULT);
-        localStorage.removeItem(OLD_STORE);
-
-        localStorage.setItem(
-          STORE,
-          JSON.stringify(conversations)
-        );
-
-        updateLockStatus();
-
-        alert("Kunci riwayat berhasil dihapus.");
-
-      } catch {
-        alert(
-          "PIN salah atau data riwayat tidak bisa dibuka."
+        conversations = await decryptHistory(
+          currentKey,
+          JSON.parse(
+            localStorage.getItem(LOCK_VAULT) || "null"
+          )
         );
       }
+
+      await activateHistoryLock(pin);
+      setHistoryLocked(true);
+
+      if (lockPinInput) lockPinInput.value = "";
+      if (lockPinConfirm) lockPinConfirm.value = "";
+      if (lockCurrentPin) lockCurrentPin.value = "";
+
+      alert("Kunci riwayat berhasil diaktifkan/diperbarui.");
+
+    } catch (error) {
+      alert(error.message || "Gagal mengaktifkan kunci.");
     }
-  );
+  });
+
+  $("#disableLock")?.addEventListener("click", async () => {
+    if (!lockMeta || !vaultKey) {
+      return alert(
+        "Buka riwayat dengan PIN terlebih dahulu."
+      );
+    }
+
+    const pin = prompt(
+      "Masukkan PIN saat ini untuk menghapus kunci:"
+    );
+
+    if (pin === null) return;
+
+    try {
+      const checkKey = await deriveVaultKey(
+        pin,
+        lockMeta.salt
+      );
+
+      const vault = JSON.parse(
+        localStorage.getItem(LOCK_VAULT) || "null"
+      );
+
+      const restored = await decryptHistory(
+        checkKey,
+        vault
+      );
+
+      conversations = restored;
+
+      lockMeta = null;
+      vaultKey = null;
+
+      localStorage.removeItem(LOCK_META);
+      localStorage.removeItem(LOCK_VAULT);
+      localStorage.removeItem(OLD_STORE);
+
+      localStorage.setItem(
+        STORE,
+        JSON.stringify(conversations)
+      );
+
+      updateLockStatus();
+      setHistoryLocked(false);
+      renderHistory();
+
+      alert("Kunci riwayat berhasil dihapus.");
+
+    } catch {
+      alert("PIN salah atau data riwayat tidak bisa dibuka.");
+    }
+  });
 
   lockForm?.addEventListener("submit", async event => {
     event.preventDefault();
@@ -1410,31 +924,36 @@
       vaultKey = key;
       activeId = conversations[0]?.id || null;
 
-      lockScreen.hidden = true;
-      $(".app-shell").inert = false;
+      if (lockScreen) lockScreen.hidden = true;
 
+      setHistoryLocked(false);
       renderHistory();
       renderMessages();
       updateLockStatus();
 
       unlockPin.value = "";
 
-    } catch {
-      $("#unlockError").textContent =
-        "PIN salah. Coba lagi.";
+      const unlockError = $("#unlockError");
+      if (unlockError) unlockError.textContent = "";
 
-      unlockPin.value = "";
+    } catch {
+      const unlockError = $("#unlockError");
+
+      if (unlockError) {
+        unlockError.textContent = "PIN salah. Coba lagi.";
+      }
+
+      if (unlockPin) unlockPin.value = "";
     }
   });
 
   if (lockMeta) {
-    lockScreen.hidden = false;
-    $(".app-shell").inert = true;
-
+    if (lockScreen) lockScreen.hidden = true;
+    setHistoryLocked(true);
     updateLockStatus();
-    unlockPin?.focus();
-
   } else {
+    if (lockScreen) lockScreen.hidden = true;
+    setHistoryLocked(false);
     updateLockStatus();
   }
 
