@@ -500,7 +500,6 @@
 
     return canvas.toDataURL("image/jpeg", 0.82);
   }
-
       img.src = url;
     });
 
@@ -980,7 +979,6 @@
         if (message.image) {
           const sentImage = document.createElement("img");
           sentImage.src = message.image;
-
           sentImage.alt = "Foto yang dikirim";
           sentImage.className = "sent-chat-image";
 
