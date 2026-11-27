@@ -1,3 +1,4 @@
+
 :root {
   --ink: #202235;
   --muted: #85899b;
@@ -14,8 +15,14 @@
 
 * { box-sizing: border-box; }
 
-body {
+html, body {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
+}
+
+body {
   min-height: 100vh;
   background: radial-gradient(circle at 85% 8%,#eeedff 0,transparent 26%),var(--wash);
 }
@@ -23,7 +30,12 @@ body {
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
 
-.app-shell { min-height: 100vh; display: flex; }
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
 
 .sidebar {
   width: 268px;
@@ -142,6 +154,8 @@ button { cursor: pointer; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .topbar {
@@ -186,19 +200,21 @@ button { cursor: pointer; }
   margin-right: 5px;
 }
 
-.page { display: none; flex: 1; }
+.page { display: none; flex: 1; min-width: 0; }
 .active-page { display: block; }
 
 .chat-wrap {
+  width: 100%;
   max-width: 900px;
   margin: 0 auto;
   min-height: calc(100vh - 112px);
   display: flex;
   flex-direction: column;
   padding: 26px 26px 16px;
+  min-width: 0;
 }
 
-.chat-content { flex: 1; display: flex; flex-direction: column; }
+.chat-content { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
 .welcome {
   margin: auto;
@@ -284,6 +300,7 @@ button { cursor: pointer; }
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .composer textarea {
@@ -381,13 +398,19 @@ button { cursor: pointer; }
   box-shadow: 0 5px 12px #6d6bd64d;
 }
 
-.messages { display: grid; gap: 18px; padding: 10px 0; }
+.messages {
+  display: grid;
+  gap: 18px;
+  padding: 10px 0;
+  min-width: 0;
+}
 
 .message {
   display: flex;
   gap: 11px;
   align-items: flex-start;
   max-width: 100%;
+  min-width: 0;
 }
 
 .message.user { justify-content: flex-end; }
@@ -625,7 +648,7 @@ button { cursor: pointer; }
   display: none !important;
 }
 
-/* TABLE CHAT - PERBAIKAN TAMPILAN HP */
+/* TABEL CHAT */
 
 .table-wrap {
   display: block;
@@ -1030,55 +1053,15 @@ button { cursor: pointer; }
   color: #d93636;
 }
 
-/* TOMBOL PILIH FOTO DAN PREVIEW */
-
-.image-preview {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0 5px 46px;
-  padding: 8px;
-  width: fit-content;
-  max-width: calc(100% - 46px);
-  border: 1px solid #e8e7f3;
-  border-radius: 13px;
-  background: #fafaff;
-}
-
-.image-preview[hidden] { display: none; }
-
-.image-preview img {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border-radius: 9px;
-}
-
-.image-file-name {
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #77798b;
-  font-size: 11px;
-}
-
-.remove-image {
-  width: 27px;
-  height: 27px;
-  flex: 0 0 27px;
-  border: 0;
-  border-radius: 50%;
-  background: #ffe9e9;
-  color: #d93636;
-  font-size: 19px;
-}
-
 #ffPreviewPanel[hidden] { display: none !important; }
 
-/* RESPONSIVE TABLE DAN CODE PREVIEW */
+/* RESPONSIVE */
 
-@media (max-width: 850px) {
+.app-shell, .main-area, .page, .chat-wrap, .chat-content, .messages {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
   .sidebar {
     transform: translateX(-105%);
     box-shadow: 15px 0 35px #2222;
@@ -1086,7 +1069,21 @@ button { cursor: pointer; }
 
   .sidebar.open { transform: translateX(0); }
   .close-sidebar, .menu-btn { display: block; }
-  .main-area { margin-left: 0; width: 100%; }
+
+  .app-shell {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .main-area {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .page { width: 100%; max-width: 100%; }
+  .chat-wrap { width: 100%; max-width: 900px; }
   .topbar { padding: 0 16px; }
   .tool-page { padding: 28px 18px; }
   .tool-grid { grid-template-columns: 1fr; }
@@ -1143,9 +1140,7 @@ button { cursor: pointer; }
     padding: 7px 9px;
   }
 
-  .ai-table {
-    min-width: 600px;
-  }
+  .ai-table { min-width: 600px; }
 
   .ai-table th,
   .ai-table td {
