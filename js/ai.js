@@ -1,19 +1,25 @@
 window.ClassAI = {
-  async reply(messages, onToken = () => {}) {
+  async reply(messages, onToken = () => {}, imageData = null, preferences = {}) {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, stream: true })
+      body: JSON.stringify({
+        messages: messages.map((message, index) => {
+          const lastUserIndex = messages.map(m => m.role).lastIndexOf("user");
+          return index === lastUserIndex && imageData
+            ? { ...message, image: imageData }
+            : message;
+        }),
+        style: preferences.style || "normal",
+        stream: true
+      })
     });
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(error.error || "Permintaan AI gagal.");
     }
-
-    if (!response.body) {
-      throw new Error("Browser tidak mendukung streaming.");
-    }
+    if (!response.body) throw new Error("Browser tidak mendukung streaming.");
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -23,7 +29,6 @@ window.ClassAI = {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
@@ -31,13 +36,10 @@ window.ClassAI = {
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const payload = line.slice(6).trim();
-
         if (payload === "[DONE]") return result;
-
         try {
           const data = JSON.parse(payload);
           if (data.error) throw new Error(data.error);
-
           const token = data.choices?.[0]?.delta?.content || "";
           if (token) {
             result += token;
@@ -48,7 +50,6 @@ window.ClassAI = {
         }
       }
     }
-
     return result;
   }
 };
