@@ -4,7 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f7f8fc">
-  <meta name="description" content="FOR-CLASS IX — CLASS-AI dan creative tools.">
+  <meta name="description" content="CLASS-AI — asisten AI untuk belajar, coding, dan berkreasi.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="CLASS-AI · FOR-CLASS IX">
+  <meta property="og:description" content="Asisten AI untuk membantu belajar, membuat kode, dan berkreasi.">
+  <meta property="og:image" content="/assets/icon.jpg">
+  <meta property="og:image:alt" content="Logo CLASS-AI">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="CLASS-AI · FOR-CLASS IX">
+  <meta name="twitter:description" content="Asisten AI untuk belajar, coding, dan berkreasi.">
+  <meta name="twitter:image" content="/assets/icon.jpg">
   <title>FOR-CLASS IX · CLASS-AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,6 +34,7 @@
       <div id="chatHistory" class="chat-history"></div>
 
       <div class="sidebar-spacer"></div>
+      <button class="nav-item" data-page="settings"><span>⚙</span> SETTINGS</button>
       <button class="nav-item about-link" data-page="about"><span>ⓘ</span> ABOUT CLASS IX</button>
       <div class="sidebar-foot">Made for creativity · v1.0</div>
     </aside>
@@ -55,6 +65,7 @@
           </div>
 
           <form class="composer" id="chatForm">
+            <div id="imagePreview" class="image-preview" hidden></div>
             <div class="composer-main">
               <label for="imageInput" class="image-button" title="Pilih foto" aria-label="Pilih foto">+</label>
               <input type="file" id="imageInput" accept="image/*" hidden>
@@ -64,12 +75,63 @@
               <button class="send-btn" id="sendButton" type="submit" aria-label="Kirim pesan">↑</button>
             </div>
 
-            <div id="imagePreview" class="image-preview" hidden></div>
-
             <div class="composer-bottom">
               <span class="composer-hint">CLASS-AI dapat membuat kesalahan. Periksa informasi penting.</span>
             </div>
           </form>
+        </div>
+      </section>
+
+      <section class="page tool-page" id="page-settings">
+        <div class="page-heading">
+          <p class="eyebrow">PERSONALIZE YOUR SPACE</p>
+          <h1>CLASS-AI <span>SETTINGS</span></h1>
+          <p>Atur pengalaman CLASS-AI sesuai kebutuhanmu.</p>
+        </div>
+        <div class="settings-layout">
+          <section class="settings-card">
+            <h2>Appearance</h2>
+            <p>Atur tampilan aplikasi.</p>
+            <label class="settings-label" for="appearanceSelect">Tema</label>
+            <select id="appearanceSelect" class="settings-control">
+              <option value="light">Light</option><option value="dark">Dark</option><option value="system">System default</option>
+            </select>
+          </section>
+          <section class="settings-card">
+            <h2>Profile</h2><p>Nama tampilan disimpan di perangkat ini.</p>
+            <label class="settings-label" for="profileName">Nama pengguna</label>
+            <input id="profileName" class="settings-control" maxlength="40" placeholder="Nama kamu">
+            <button class="settings-action" id="saveProfile">Simpan nama</button>
+          </section>
+          <section class="settings-card">
+            <h2>Chat Preferences</h2><p>Atur cara mengirim pesan.</p>
+            <label class="settings-check"><input type="checkbox" id="enterToSend" checked> Enter untuk mengirim pesan</label>
+          </section>
+          <section class="settings-card">
+            <h2>AI Preferences</h2><p>Pilih gaya jawaban CLASS-AI.</p>
+            <label class="settings-label" for="aiStyle">Gaya jawaban</label>
+            <select id="aiStyle" class="settings-control"><option value="normal">Normal</option><option value="concise">Singkat</option><option value="detailed">Detail</option></select>
+          </section>
+          <section class="settings-card">
+            <h2>Data &amp; Privacy</h2><p>Kelola riwayat percakapan di perangkat ini.</p>
+            <button class="settings-action danger-action" id="clearAllHistory">Hapus semua riwayat</button>
+          </section>
+          <section class="settings-card" id="lockSettings">
+            <h2>🔒 Lock History</h2><p>Kunci riwayat chat dengan PIN. Riwayat disimpan terenkripsi di browser saat fitur ini aktif.</p>
+            <div id="lockStatus" class="lock-status">Kunci belum aktif</div>
+            <label class="settings-label" for="lockCurrentPin">PIN saat ini (untuk mengubah PIN)</label>
+            <input id="lockCurrentPin" class="settings-control" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Kosongkan saat pertama kali membuat PIN">
+            <label class="settings-label" for="lockPin">PIN baru (minimal 6 karakter)</label>
+            <input id="lockPin" class="settings-control" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" placeholder="Masukkan PIN">
+            <label class="settings-label" for="lockPinConfirm">Ulangi PIN</label>
+            <input id="lockPinConfirm" class="settings-control" type="password" inputmode="numeric" autocomplete="new-password" minlength="6" placeholder="Ulangi PIN">
+            <div class="settings-actions"><button class="settings-action" id="enableLock">Aktifkan / Ubah PIN</button><button class="settings-action danger-action" id="disableLock">Hapus kata sandi</button></div>
+            <p class="settings-note">Untuk mengubah PIN, masukkan PIN saat ini. Untuk menghapus kunci, masukkan PIN saat ini saat diminta.</p>
+          </section>
+          <section class="settings-card">
+            <h2>About CLASS-AI</h2><p>FOR-CLASS IX · CLASS-AI · v1.0</p>
+            <button class="settings-action" data-page="about" id="openAbout">Tentang aplikasi</button>
+          </section>
         </div>
       </section>
 
@@ -94,6 +156,15 @@
   </div>
 
   <div class="mobile-scrim" id="scrim"></div>
+  <div class="history-lock-screen" id="historyLockScreen" hidden>
+    <form class="history-lock-card" id="historyUnlockForm">
+      <img src="/assets/icon.jpg" alt="CLASS-AI" class="lock-logo">
+      <h2>Riwayat Terkunci</h2><p>Masukkan PIN untuk membuka riwayat CLASS-AI.</p>
+      <input id="unlockPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Masukkan PIN" required>
+      <button type="submit">Buka riwayat</button>
+      <small id="unlockError" aria-live="polite"></small>
+    </form>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
